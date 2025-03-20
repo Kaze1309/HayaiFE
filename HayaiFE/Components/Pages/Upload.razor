@@ -1,0 +1,162 @@
+﻿@page "/upload"
+@using HayaiFE.Models
+@using HayaiFE.Services
+@using Microsoft.AspNetCore.Hosting
+@using System
+@using System.IO
+@attribute [Authorize]
+@inject IWebHostEnvironment Environment
+@inject IYearBranchSubjectService YearBranchService
+
+<h3 class="pb-2 py-4">For Student</h3>
+<hr style="border: 2px solid black; margin-bottom:3rem;" />
+@if(branches == null || years == null || subjects == null)
+{
+    <h1>Some Error Has Occurred.</h1>
+}
+else
+{
+
+    <MudGrid>
+        <MudItem>
+            <MudSelect Variant="Variant.Outlined" T="int" @bind-value="@selectedYearId" @bind-value:after="OnYearSelected">
+                
+                <MudSelectItem Value="0" Disabled="true">Select Year</MudSelectItem>
+                @foreach (var year in years)
+                {
+                    <MudSelectItem Value="@year.YearId">@year.YearName</MudSelectItem>
+                }
+            </MudSelect>
+            </MudItem>
+        <MudItem>
+            <MudSelect Variant="Variant.Outlined" T="int" @bind-value="@selectedBranchdId" @bind-value:after="OnBranchSelected">
+
+                <MudSelectItem Value="0" Disabled="true">Select Branch</MudSelectItem>
+                @foreach (var branch in branches)
+                {
+                    <MudSelectItem Value="@branch.branchId">@branch.branchName</MudSelectItem>
+                }
+
+            </MudSelect>
+        </MudItem>
+        <MudItem>
+            <MudSelect Variant="Variant.Outlined" Value="@selectedSubjectId">
+
+                <MudSelectItem Value="0" Disabled="true">Select Subject</MudSelectItem>
+                @foreach(var subject in subjects)
+                {
+                    <MudSelectItem Value="@subject.subjectId">@subject.subjectName</MudSelectItem>  
+                }
+               </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudFileUpload @bind-Files="browserfile"
+                    Class="pl-3 pt-5" 
+                    T="IBrowserFile"
+                    For="@(()=>browserfile)"
+                    OnFilesChanged="LoadFiles">
+        <ActivatorContent>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.CloudUpload">
+                    Browse Files
+            </MudButton>
+        </ActivatorContent>
+    </MudFileUpload>
+
+   
+<hr style="border: 2px solid black; margin-top:3rem" />
+
+<h3 class="pb-2 py-4">For Teachers</h3>
+
+    <MudFileUpload Class="pl-1 pt-5" T="IBrowserFile">
+        <ActivatorContent>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.CloudUpload">
+                Browse Files
+            </MudButton>
+        </ActivatorContent>
+    </MudFileUpload>
+
+    
+}
+@code {
+    //dropdown related
+    private List<Year> years =new();
+    private List<Branch> branches =new();
+    private List<Subject> subjects =new(); 
+
+    private int selectedYearId;
+    private int selectedBranchdId;
+    private int selectedSubjectId;
+
+    //file upload related
+    const int MAX_FILESIZE = 5000 * 1024; // 5MB
+    private IBrowserFile? browserfile{ get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        years = await YearBranchService.GetYearsAsync();
+        
+    }
+
+    private async Task OnYearSelected()
+    {
+        
+        branches = await YearBranchService.GetBranchesByYearAsync(selectedYearId);
+        subjects.Clear();
+        selectedBranchdId = 0;
+        selectedSubjectId = 0;
+    }
+
+    private async Task OnBranchSelected()
+    {
+        subjects = await YearBranchService.GetSubjectByBranchesAndYearAsync(selectedYearId, selectedBranchdId);
+        selectedSubjectId = 0;
+    }
+
+
+    private string uploadedFilePath = string.Empty; // Store file path globally
+
+    private List<string> uploadedFilePaths = new(); // Store paths of uploaded files
+
+private async Task LoadFiles(InputFileChangeEventArgs e)
+{
+    foreach (var file in e.GetMultipleFiles())
+    {
+        try
+        {
+            var uploadFolder = Path.Combine(Environment.ContentRootPath, "unsafe_uploads");
+
+            // Ensure the folder exists
+            if (!Directory.Exists(uploadFolder))
+            {
+                Directory.CreateDirectory(uploadFolder);
+            }
+
+            // Generate a unique filename
+            string uniqueFileName = $"{Guid.NewGuid()}_{file.Name}";
+            string filePath = Path.Combine(uploadFolder, uniqueFileName);
+
+            // Save the file
+            await using FileStream fs = new(filePath, FileMode.Create);
+            await file.OpenReadStream(MAX_FILESIZE).CopyToAsync(fs);
+
+            uploadedFilePaths.Add(filePath); // Store the path
+
+            Console.WriteLine($"File saved at: {filePath}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving file: {ex.Message}");
+        }
+    }
+}
+
+
+
+        
+}
+
