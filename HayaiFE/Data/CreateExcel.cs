@@ -1,4 +1,13 @@
-﻿using System;
+﻿
+
+
+
+
+
+
+// ✅ Create Final PDF Report & Return as MemoryStream
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -12,9 +21,8 @@ namespace HayaiFE.Data
 {
     public class CreateExcel
     {
-        private string filePath = "Data\\SampleFE.pdf"; // Path to the uploaded file
-                                                        // ✅ Remove unwanted repeated text before processing
-                                                        // ✅ Extract Year from PDF (F.E., S.E., T.E., B.E.)
+        private string filePath = "Data\\TE.pdf";
+
         public string ExtractYear()
         {
             using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -28,11 +36,10 @@ namespace HayaiFE.Data
             return match.Success ? match.Groups[1].Value : "Unknown";
         }
 
-        // ✅ Extract Subject Names from All Pages
         public List<Subject> ExtractSubjectsFromTable()
         {
             List<Subject> subjects = new List<Subject>();
-            HashSet<string> seenSubjects = new HashSet<string>(); // ✅ Track UNIQUE subjects by Code + Name + Type
+            HashSet<string> seenSubjects = new HashSet<string>(); // ✅ Track unique subjects
 
             using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             using PdfLoadedDocument loadedDocument = new PdfLoadedDocument(docStream);
@@ -44,9 +51,9 @@ namespace HayaiFE.Data
                 fullText.Append(pageText + "\n");
             }
 
-            // ✅ Updated Regex to correctly capture subject codes, names, and types while handling multi-line names
+            // ✅ Regex to match subject code, name, and multiple types within [[ ]]
             Regex subjectRegex = new Regex(
-                @"SUB:\s*(\d{6,7}[A-Z]?)\s+([\w\s\(\)\-\&\,\.]+?)\s*(\[\[[A-Z,\s]+\]\](?:\s*,\s*\[\[[A-Z,\s]+\]\])*)",
+                @"SUB:\s*(\d{6,7}[A-Z]?)\s+([\w\s\(\)\-\&\,\.]+?)\s*(\[\[.+?\]\])",
                 RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
             MatchCollection matches = subjectRegex.Matches(fullText.ToString());
@@ -54,11 +61,11 @@ namespace HayaiFE.Data
             foreach (Match match in matches)
             {
                 string subjectCode = match.Groups[1].Value.Trim();
-                string subjectName = Regex.Replace(match.Groups[2].Value, @"\s+", " ").Trim(); // Normalize spaces
-                string subjectType = match.Groups[3].Value.Trim(); // ✅ Preserve square brackets `[[IN],[TH]]`
+                string subjectName = Regex.Replace(match.Groups[2].Value, @"\s+", " ").Trim();
+                string subjectType = match.Groups[3].Value.Trim(); // ✅ Entire type block (e.g., `[[IN],[TH]]`)
 
-                // ✅ Use Subject Type in Unique Key to capture all variations
                 string uniqueKey = $"{subjectCode}_{subjectName}_{subjectType}";
+
                 if (!seenSubjects.Contains(uniqueKey))
                 {
                     seenSubjects.Add(uniqueKey);
@@ -68,8 +75,6 @@ namespace HayaiFE.Data
 
             return subjects;
         }
-
-        // ✅ Extract Student Seat Numbers Based on Year
         public Dictionary<string, List<string>> ExtractStudentSeatNumbers(List<Subject> subjects, string year)
         {
             Dictionary<string, List<string>> subjectSeats = new Dictionary<string, List<string>>();
@@ -94,9 +99,9 @@ namespace HayaiFE.Data
 
             foreach (var subject in subjects)
             {
-                string subjectKey = subject.ToString();
+                string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
 
-                // ✅ Updated Regex: Matches subject with exact Code, Name, and Type
+                // ✅ Updated Regex to match subjects with specific type
                 string pattern = @$"SUB:\s*{subject.Code}\s+{Regex.Escape(subject.Name)}\s*{Regex.Escape(subject.Type)}.*?NO\.OF STUDENTS:\s*\d+\s*([\s\S]+?)(?=\nSUB:\s*\d+|\nReport|$)";
                 Match match = Regex.Match(fullText.ToString(), pattern, RegexOptions.Singleline);
 
@@ -118,7 +123,6 @@ namespace HayaiFE.Data
             return subjectSeats;
         }
 
-        // ✅ Create Final PDF Report & Return as MemoryStream
         public MemoryStream CreateDocument()
         {
             string year = ExtractYear();
@@ -141,17 +145,37 @@ namespace HayaiFE.Data
 
             foreach (var subject in subjects)
             {
-                string subjectKey = subject.ToString();
+                string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
 
                 graphics.DrawString($"Code: {subject.Code}  -  Name: {subject.Name}  - Type: {subject.Type}",
                                     font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
                 yPosition += 20;
 
-                if (subjectSeats.ContainsKey(subjectKey))
+                if (subjectSeats.ContainsKey(subjectKey) && subjectSeats[subjectKey].Count > 0)
                 {
-                    string seats = string.Join(", ", subjectSeats[subjectKey]);
-                    graphics.DrawString($"Seat Numbers: {seats}", font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
-                    yPosition += 40;
+                    graphics.DrawString("Seat Numbers:", font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
+                    yPosition += 20;
+
+                    // ✅ Print seat numbers in chunks for readability
+                    int chunkSize = 10; // Adjust the number of seats per line if necessary
+                    var seatChunks = subjectSeats[subjectKey]
+                        .Select((seat, index) => new { seat, index })
+                        .GroupBy(x => x.index / chunkSize)
+                        .Select(g => string.Join(", ", g.Select(x => x.seat)));
+
+                    foreach (string seatLine in seatChunks)
+                    {
+                        graphics.DrawString(seatLine, font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
+                        yPosition += 20;
+
+                        // ✅ Ensure new page if content exceeds the limit
+                        if (yPosition > 750)
+                        {
+                            page = newPdf.Pages.Add();
+                            graphics = page.Graphics;
+                            yPosition = 20;
+                        }
+                    }
                 }
                 else
                 {
@@ -159,6 +183,7 @@ namespace HayaiFE.Data
                     yPosition += 20;
                 }
 
+                // ✅ Ensure new page if content exceeds the limit
                 if (yPosition > 750)
                 {
                     page = newPdf.Pages.Add();
@@ -174,24 +199,33 @@ namespace HayaiFE.Data
 
             return pdfStream;
         }
+
+
+
+        public class Subject
+        {
+            public string Code { get; set; }
+            public string Name { get; set; }
+            public string Type { get; set; }
+
+            public Subject(string code, string name, string type)
+            {
+                Code = code;
+                Name = name;
+                Type = type;
+            }
+
+            public override string ToString()
+            {
+                return $"{Code}_{Name}_{Type}";
+            }
+        }
     }
 
-    public class Subject
-    {
-        public string Code { get; set; }
-        public string Name { get; set; }
-        public string Type { get; set; }
-
-        public Subject(string code, string name, string type)
-        {
-            Code = code;
-            Name = name;
-            Type = type;
-        }
-
-        public override string ToString()
-        {
-            return $"{Code}_{Name}_{Type}";
-        }
-    }
 }
+
+
+
+
+
+
