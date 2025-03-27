@@ -1,3 +1,4 @@
+using Blazored.SessionStorage;
 using HayaiFE.Components;
 using HayaiFE.Components.Account;
 using HayaiFE.Data;
@@ -22,6 +23,8 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+builder.Services.AddSingleton<ExamDataService>(); // Data persists across pages & users
+
 builder.Services.AddSingleton<IYearBranchSubjectService, YearBranchSubjectService>();
 builder.Services.AddAuthentication(options =>
     {
@@ -41,6 +44,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddDefaultTokenProviders();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddSingleton<CreateExcel>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

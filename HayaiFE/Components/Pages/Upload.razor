@@ -53,9 +53,10 @@ else
 
     <MudFileUpload @bind-Files="browserfile"
                     Class="pl-3 pt-5" 
-                    T="IBrowserFile"
+                    T="IReadOnlyList<IBrowserFile>"
                     For="@(()=>browserfile)"
-                    OnFilesChanged="LoadFiles">
+                    OnFilesChanged="LoadFiles"
+                    Accept=".pdf">
         <ActivatorContent>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -94,7 +95,7 @@ else
 
     //file upload related
     const int MAX_FILESIZE = 5000 * 1024; // 5MB
-    private IBrowserFile? browserfile{ get; set; }
+    public IReadOnlyList<IBrowserFile>? browserfile{ get; set; } = new List<IBrowserFile>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,7 +138,7 @@ private async Task LoadFiles(InputFileChangeEventArgs e)
             }
 
             // Generate a unique filename
-            string uniqueFileName = $"{Guid.NewGuid()}_{file.Name}";
+            string uniqueFileName = $"{file.Name}";
             string filePath = Path.Combine(uploadFolder, uniqueFileName);
 
             // Save the file

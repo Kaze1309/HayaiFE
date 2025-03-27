@@ -1,0 +1,32 @@
+﻿@page "/display"
+@inject ExamDataService ExamService
+
+<h3>Stored Exam Data</h3>
+
+@if (ExamService.GetExamDetails().Count > 0)
+{
+    <ul>
+        @foreach (var exam in ExamService.GetExamDetails())
+        {
+            <li><strong>Exam Year:</strong> @exam.ExamYear</li>
+            <li><strong>Subjects:</strong></li>
+            <ul>
+                @foreach (var subject in exam.ExtractedSubjects)
+                {
+                    <li>@subject.Code - @subject.Name (@subject.Type)</li>
+                }
+            </ul>
+            <li><strong>Seat Numbers:</strong></li>
+            <ul>
+                @foreach (var seatEntry in exam.ExtractedSeatNumbers)
+                {
+                    <li>@seatEntry.Key: @string.Join(", ", seatEntry.Value)</li>
+                }
+            </ul>
+        }
+    </ul>
+}
+else
+{
+    <p style="color: red;">No data found! Please extract it first.</p>
+}

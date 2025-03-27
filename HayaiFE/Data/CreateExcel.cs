@@ -1,13 +1,4 @@
-﻿
-
-
-
-
-
-
-// ✅ Create Final PDF Report & Return as MemoryStream
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -21,9 +12,9 @@ namespace HayaiFE.Data
 {
     public class CreateExcel
     {
-        private string filePath = "Data\\TE.pdf";
+        private string filePath = "Data\\SampleFE.pdf";
 
-        public string ExtractYear()
+        public string ExtractYear(string filePath)
         {
             using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             using PdfLoadedDocument loadedDocument = new PdfLoadedDocument(docStream);
@@ -36,7 +27,7 @@ namespace HayaiFE.Data
             return match.Success ? match.Groups[1].Value : "Unknown";
         }
 
-        public List<Subject> ExtractSubjectsFromTable()
+        public List<Subject> ExtractSubjectsFromTable(string filePath)
         {
             List<Subject> subjects = new List<Subject>();
             HashSet<string> seenSubjects = new HashSet<string>(); // ✅ Track unique subjects
@@ -75,7 +66,7 @@ namespace HayaiFE.Data
 
             return subjects;
         }
-        public Dictionary<string, List<string>> ExtractStudentSeatNumbers(List<Subject> subjects, string year)
+        public Dictionary<string, List<string>> ExtractStudentSeatNumbers(List<Subject> subjects, string year, string filePath)
         {
             Dictionary<string, List<string>> subjectSeats = new Dictionary<string, List<string>>();
 
@@ -112,9 +103,10 @@ namespace HayaiFE.Data
                         .Replace("\r", "")
                         .Trim();
 
-                    string[] seatNumbers = studentsText.Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                                                       .Where(s => s.StartsWith(seatPrefix)) // ✅ Filter based on Year Prefix
-                                                       .ToArray();
+                    string[] seatNumbers = studentsText
+                        .Split(new char[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Where(s => s.StartsWith(seatPrefix) && s.Length > 1 && char.IsDigit(s[1])) // ✅ Checks next character after prefix is a digit
+                        .ToArray();
 
                     subjectSeats[subjectKey] = seatNumbers.ToList();
                 }
@@ -123,11 +115,12 @@ namespace HayaiFE.Data
             return subjectSeats;
         }
 
+
         public MemoryStream CreateDocument()
         {
-            string year = ExtractYear();
-            List<Subject> subjects = ExtractSubjectsFromTable();
-            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year);
+            string year = ExtractYear(filePath);
+            List<Subject> subjects = ExtractSubjectsFromTable(filePath);
+            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year, filePath);
 
             PdfDocument newPdf = new PdfDocument();
             PdfFont font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
@@ -199,6 +192,37 @@ namespace HayaiFE.Data
 
             return pdfStream;
         }
+        public List<ExamDetails> ExtractExamDetails()
+        {
+            string year = ExtractYear(filePath);
+            List<Subject> subjects = ExtractSubjectsFromTable(filePath);
+            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year, filePath);
+
+            List<ExamDetails> examDetailsList = new List<ExamDetails>();
+
+            foreach (var subject in subjects)
+            {
+                string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
+
+                examDetailsList.Add(new ExamDetails
+                {
+                    ExamYear = year,
+                    ExtractedSubjects = subjects,
+                    ExtractedSeatNumbers = subjectSeats
+                });
+            }
+
+            return examDetailsList;
+        }
+
+        // Class to store extracted details
+        public class ExamDetails
+        {
+            public string ExamYear { get; set; }
+            public List<Subject> ExtractedSubjects { get; set; }
+            public Dictionary<string, List<string>> ExtractedSeatNumbers { get; set; }
+        }
+
 
 
 
@@ -220,6 +244,8 @@ namespace HayaiFE.Data
                 return $"{Code}_{Name}_{Type}";
             }
         }
+
+
     }
 
 }
