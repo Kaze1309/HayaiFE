@@ -36,34 +36,24 @@ namespace HayaiFE.Services
             new Branch{ branchId = 4, YearId = 4, branchName = "Electrical"},
         };
 
-        private List<Subject> subjects = new()
-        {
-            new Subject { branchId = -1, YearId = 1, subjectId = 101 , subjectName ="Engineering Mathematics- I" },
-            new Subject { branchId = -1, YearId = 1, subjectId = 102 , subjectName = "Engineering Physics"},
+        public List<string> subjects = new();
 
-            new Subject { branchId = 1, YearId = 2, subjectId = 211 , subjectName = "Fundamentals of Data Structures"},
-            new Subject { branchId = 2, YearId = 2, subjectId = 221 , subjectName = "Software Engineering"},
+        //public Task<List<Year>> GetYearsAsync()
+        //{
+        //    return Task.FromResult(years);
+        //}
 
-            new Subject { branchId = 1, YearId = 3, subjectId = 311 , subjectName = "Database Management System"},
-            new Subject { branchId = 2, YearId = 3, subjectId = 321 , subjectName = "Computer Networks"}
-        };
+        //public Task<List<Branch>> GetBranchesByYearAsync(int yearId)
+        //{
+        //    var filteredBranches = branches.Where(b => b.YearId == yearId).ToList();
+        //    return Task.FromResult(filteredBranches);
+        //}
 
-        public Task<List<Year>> GetYearsAsync()
-        {
-            return Task.FromResult(years);
-        }
-
-        public Task<List<Branch>> GetBranchesByYearAsync(int yearId)
-        {
-            var filteredBranches = branches.Where(b => b.YearId == yearId).ToList();
-            return Task.FromResult(filteredBranches);
-        }
-
-        public Task<List<Subject>> GetSubjectByBranchesAndYearAsync(int yearId, int branchId)
-        {
-            var filteredSubjects = subjects.Where(s => s.YearId == yearId && s.branchId == branchId).ToList();
-            return Task.FromResult(filteredSubjects);
-        }
+        //public Task<List<Subject>> GetSubjectByBranchesAndYearAsync(int yearId, int branchId)
+        //{
+        //    var filteredSubjects = subjects.Where(s => s.YearId == yearId && s.branchId == branchId).ToList();
+        //    return Task.FromResult(filteredSubjects);
+        //}
 
 
     };

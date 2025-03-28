@@ -1,73 +1,81 @@
 ﻿@page "/upload"
 @using HayaiFE.Models
 @using HayaiFE.Services
+@using HayaiFE.Data
 @using Microsoft.AspNetCore.Hosting
 @using System
 @using System.IO
 @attribute [Authorize]
 @inject IWebHostEnvironment Environment
-@inject IYearBranchSubjectService YearBranchService
+@inject ExamDataService ExamService
+@inject IJSRuntime JS
 
 <h3 class="pb-2 py-4">For Student</h3>
 <hr style="border: 2px solid black; margin-bottom:3rem;" />
-@if(branches == null || years == null || subjects == null)
-{
-    <h1>Some Error Has Occurred.</h1>
-}
-else
-{
 
-    <MudGrid>
-        <MudItem>
-            <MudSelect Variant="Variant.Outlined" T="int" @bind-value="@selectedYearId" @bind-value:after="OnYearSelected">
-                
-                <MudSelectItem Value="0" Disabled="true">Select Year</MudSelectItem>
-                @foreach (var year in years)
-                {
-                    <MudSelectItem Value="@year.YearId">@year.YearName</MudSelectItem>
-                }
-            </MudSelect>
-            </MudItem>
-        <MudItem>
-            <MudSelect Variant="Variant.Outlined" T="int" @bind-value="@selectedBranchdId" @bind-value:after="OnBranchSelected">
-
-                <MudSelectItem Value="0" Disabled="true">Select Branch</MudSelectItem>
-                @foreach (var branch in branches)
-                {
-                    <MudSelectItem Value="@branch.branchId">@branch.branchName</MudSelectItem>
-                }
-
-            </MudSelect>
-        </MudItem>
-        <MudItem>
-            <MudSelect Variant="Variant.Outlined" Value="@selectedSubjectId">
-
-                <MudSelectItem Value="0" Disabled="true">Select Subject</MudSelectItem>
-                @foreach(var subject in subjects)
-                {
-                    <MudSelectItem Value="@subject.subjectId">@subject.subjectName</MudSelectItem>  
-                }
-               </MudSelect>
-        </MudItem>
-    </MudGrid>
-
+    <EditForm Model="examDetails" OnValidSubmit="SaveChanges">
+        <DataAnnotationsValidator></DataAnnotationsValidator>
+        <h3>Upload Seat Number Sheet.</h3>
     <MudFileUpload @bind-Files="browserfile"
-                    Class="pl-3 pt-5" 
-                    T="IReadOnlyList<IBrowserFile>"
-                    For="@(()=>browserfile)"
-                    OnFilesChanged="LoadFiles"
-                    Accept=".pdf">
+                   Class="pl-3 pt-5"
+                   T="IBrowserFile"
+                   For="@(()=>browserfile)"
+                   OnFilesChanged="LoadFiles"
+                   Accept=".pdf">
         <ActivatorContent>
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.CloudUpload">
-                    Browse Files
+                Browse Files
             </MudButton>
         </ActivatorContent>
     </MudFileUpload>
 
-   
+    @if (exams != null && exams.Count > 0)
+    {
+        <MudSelect Label="Select Subject" MultiSelection="true" @bind-SelectedValues="selectedSubjects" >
+            @foreach (var subject in exams.SelectMany(e => e.ExtractedSubjects).DistinctBy(s => $"{s.Code}_{s.Name}_{s.Type}"))
+            {
+                var subjectDisplay = $"{subject.Code} {subject.Name} {subject.Type}";
+                <MudSelectItem Value="@subjectDisplay">@subjectDisplay</MudSelectItem>
+            }
+        </MudSelect>
+    }
+
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Register</MudButton>
+    
+</EditForm>     
+
 <hr style="border: 2px solid black; margin-top:3rem" />
+<h3>Submitted Exams</h3>
+@if (ExamService.GetSavedExams().Count > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Year</th>
+                <th>Number of Students</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var exam in ExamService.GetSavedExams())
+            {
+                <tr>
+                    <td>@exam.Subject</td>
+                    <td>@exam.ExamYear</td>
+                    <td>@exam.StudentCount</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No exams submitted yet.</p>
+}
+
+
 
 <h3 class="pb-2 py-4">For Teachers</h3>
 
@@ -81,83 +89,104 @@ else
         </ActivatorContent>
     </MudFileUpload>
 
-    
-}
 @code {
-    //dropdown related
-    private List<Year> years =new();
-    private List<Branch> branches =new();
-    private List<Subject> subjects =new(); 
+    BranchWiseExamDetails examDetails = new();
+    CreateExcel extractFunction = new();
 
-    private int selectedYearId;
-    private int selectedBranchdId;
-    private int selectedSubjectId;
-
+    private IEnumerable<string> selectedSubjects = new HashSet<string>{};
+    public List<Subject> subjects = new();
+    public Dictionary<string, List<string>> seatNumbers = new();
+    public string year;
+    public List<CreateExcel.ExamDetails> exams = new();
+    public List<CreateExcel.ExamDetails> ExtractExamDetails { get; private set; } = new();
+   
     //file upload related
     const int MAX_FILESIZE = 5000 * 1024; // 5MB
-    public IReadOnlyList<IBrowserFile>? browserfile{ get; set; } = new List<IBrowserFile>();
-
-    protected override async Task OnInitializedAsync()
-    {
-        years = await YearBranchService.GetYearsAsync();
-        
-    }
-
-    private async Task OnYearSelected()
-    {
-        
-        branches = await YearBranchService.GetBranchesByYearAsync(selectedYearId);
-        subjects.Clear();
-        selectedBranchdId = 0;
-        selectedSubjectId = 0;
-    }
-
-    private async Task OnBranchSelected()
-    {
-        subjects = await YearBranchService.GetSubjectByBranchesAndYearAsync(selectedYearId, selectedBranchdId);
-        selectedSubjectId = 0;
-    }
-
+    public IBrowserFile? browserfile{ get; set; }
 
     private string uploadedFilePath = string.Empty; // Store file path globally
 
     private List<string> uploadedFilePaths = new(); // Store paths of uploaded files
-
-private async Task LoadFiles(InputFileChangeEventArgs e)
-{
-    foreach (var file in e.GetMultipleFiles())
+    private string filePath{ get; set; }
+    private async Task LoadFiles(InputFileChangeEventArgs e)
     {
-        try
+        foreach (var file in e.GetMultipleFiles())
         {
-            var uploadFolder = Path.Combine(Environment.ContentRootPath, "unsafe_uploads");
-
-            // Ensure the folder exists
-            if (!Directory.Exists(uploadFolder))
+            try
             {
-                Directory.CreateDirectory(uploadFolder);
+                var uploadFolder = Path.Combine(Environment.ContentRootPath, "unsafe_uploads");
+
+                if (!Directory.Exists(uploadFolder))
+                {
+                    Directory.CreateDirectory(uploadFolder);
+                }
+
+                string uniqueFileName = $"{file.Name}";
+                filePath = Path.Combine(uploadFolder, uniqueFileName); // Ensure `filePath` is set
+
+                await using FileStream fs = new(filePath, FileMode.Create);
+                await file.OpenReadStream(MAX_FILESIZE).CopyToAsync(fs);
+
+                uploadedFilePaths.Add(filePath);
+                Console.WriteLine($"File saved at: {filePath}");
             }
-
-            // Generate a unique filename
-            string uniqueFileName = $"{file.Name}";
-            string filePath = Path.Combine(uploadFolder, uniqueFileName);
-
-            // Save the file
-            await using FileStream fs = new(filePath, FileMode.Create);
-            await file.OpenReadStream(MAX_FILESIZE).CopyToAsync(fs);
-
-            uploadedFilePaths.Add(filePath); // Store the path
-
-            Console.WriteLine($"File saved at: {filePath}");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving file: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+
+        // Process the uploaded file
+        subjects = extractFunction.ExtractSubjectsFromTable(filePath);
+        seatNumbers = extractFunction.ExtractStudentSeatNumbers(subjects, year, filePath);
+        ExtractExamDetails = extractFunction.ExtractExamDetails(filePath, year, subjects, seatNumbers);
+
+        ExamService.SetExamDetails(ExtractExamDetails);
+        exams = ExamService.GetExamDetails();
+
+        Console.WriteLine($"Exam details count: {exams.Count}");
+
+        // Force UI Update
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SaveChanges()
+    {
+        if (selectedSubjects != null && selectedSubjects.Any() && ExtractExamDetails.Any())
         {
-            Console.WriteLine($"Error saving file: {ex.Message}");
+            foreach (var selectedSubject in selectedSubjects) // Iterate over all selected subjects
+            {
+                var selectedExam = ExtractExamDetails.FirstOrDefault(e =>
+                    e.ExtractedSubjects.Any(s => $"{s.Code} {s.Name} {s.Type}" == selectedSubject));
+
+                if (selectedExam != null)
+                {
+                    var subjectObj = selectedExam.ExtractedSubjects
+                        .FirstOrDefault(s => $"{s.Code} {s.Name} {s.Type}" == selectedSubject);
+
+                    if (subjectObj != null)
+                    {
+                        // Construct the correct key format
+                        string subjectKey = $"{subjectObj.Code}_{subjectObj.Name}_{subjectObj.Type}";
+
+                        int studentCount = selectedExam.ExtractedSeatNumbers.TryGetValue(subjectKey, out var seats)
+                            ? seats.Count
+                            : 0;
+
+                        var savedExam = new SavedExamDetails
+                            {
+                                Subject = selectedSubject,
+                                ExamYear = selectedExam.ExamYear,
+                                StudentCount = studentCount
+                            };
+
+                        ExamService.AddSavedExam(savedExam);
+                    }
+                }
+            }
         }
     }
-}
 
 
-
-        
 }
 

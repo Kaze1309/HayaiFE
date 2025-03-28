@@ -7,12 +7,12 @@ using System.Linq;
 using Syncfusion.Pdf;
 using Syncfusion.Pdf.Graphics;
 using Syncfusion.Pdf.Parsing;
-
+using HayaiFE.Models;
 namespace HayaiFE.Data
 {
     public class CreateExcel
     {
-        private string filePath = "Data\\SampleFE.pdf";
+
 
         public string ExtractYear(string filePath)
         {
@@ -116,7 +116,7 @@ namespace HayaiFE.Data
         }
 
 
-        public MemoryStream CreateDocument()
+        public MemoryStream CreateDocument(string filePath)
         {
             string year = ExtractYear(filePath);
             List<Subject> subjects = ExtractSubjectsFromTable(filePath);
@@ -192,11 +192,11 @@ namespace HayaiFE.Data
 
             return pdfStream;
         }
-        public List<ExamDetails> ExtractExamDetails()
+        public List<ExamDetails> ExtractExamDetails(string filePath, string year, List<Subject> subjects, Dictionary<string, List<string>> subjectSeats)
         {
-            string year = ExtractYear(filePath);
-            List<Subject> subjects = ExtractSubjectsFromTable(filePath);
-            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year, filePath);
+            year = ExtractYear(filePath);
+            subjects = ExtractSubjectsFromTable(filePath);
+            subjectSeats = ExtractStudentSeatNumbers(subjects, year, filePath);
 
             List<ExamDetails> examDetailsList = new List<ExamDetails>();
 
@@ -222,29 +222,6 @@ namespace HayaiFE.Data
             public List<Subject> ExtractedSubjects { get; set; }
             public Dictionary<string, List<string>> ExtractedSeatNumbers { get; set; }
         }
-
-
-
-
-        public class Subject
-        {
-            public string Code { get; set; }
-            public string Name { get; set; }
-            public string Type { get; set; }
-
-            public Subject(string code, string name, string type)
-            {
-                Code = code;
-                Name = name;
-                Type = type;
-            }
-
-            public override string ToString()
-            {
-                return $"{Code}_{Name}_{Type}";
-            }
-        }
-
 
     }
 

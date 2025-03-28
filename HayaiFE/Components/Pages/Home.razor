@@ -7,34 +7,3 @@
 <br />
 <MudText Typo="Typo.h5" GutterBottom="true">User Instructions to be updated soon...</MudText>
 <br />
-@using HayaiFE.Services
-@using HayaiFE.Data
-
-@inject ExamDataService ExamService
-@inject CreateExcel ExamProcessor
-
-<MudButton OnClick="StoreExamData">Extract and Store Data</MudButton>
-
-@if (isDataSaved)
-
-{
-    <p style="color: green;">Data successfully stored in the session!</p>
-}
-
-@code {
-    private bool isDataSaved = false;
-
-
-
-    private void StoreExamData()
-
-    {
-
-        var extractedData = ExamProcessor.ExtractExamDetails();
-
-        ExamService.SetExamDetails(extractedData);
-
-        isDataSaved = true;
-
-    }
-}

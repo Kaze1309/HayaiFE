@@ -2,10 +2,20 @@
 {
     public class Subject
     {
-        public int subjectId {  get; set; }
-        public string? subjectName { get; set; }
-        public int YearId { get; set; }
-        public int branchId {  get; set; }
-        
+        public string Code { get; set; }
+        public string Name { get; set; }
+        public string Type { get; set; }
+
+        public Subject(string code, string name, string type)
+        {
+            Code = code;
+            Name = name;
+            Type = type;
+        }
+
+        public override string ToString()
+        {
+            return $"{Code}_{Name}_{Type}";
+        }
     }
 }
