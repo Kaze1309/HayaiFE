@@ -24,5 +24,9 @@ public class ExamDataService
     {
         return SavedExams;
     }
+    public void ClearSavedExams()
+    {
+        SavedExams.Clear();
+    }
 
 }

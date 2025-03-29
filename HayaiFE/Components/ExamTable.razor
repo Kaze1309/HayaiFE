@@ -1,0 +1,38 @@
+﻿@using HayaiFE.Models
+
+@code {
+    [Parameter] public List<SavedExamDetails> Exams { get; set; } = new();
+    [Parameter] public EventCallback OnClear { get; set; }
+}
+
+@if (Exams.Count > 0)
+{
+    <MudButton OnClick="@(() => OnClear.InvokeAsync())" Color="Color.Error" Variant="Variant.Filled">
+        <MudIcon Icon="@Icons.Material.Filled.DeleteForever" Class="mr-2"></MudIcon>
+        Clear Table and Data
+    </MudButton>
+
+    <MudSimpleTable>
+        <thead>
+                <MudTh>Subject</MudTh>
+                <MudTh>Year</MudTh>
+                <MudTh>Branch</MudTh>
+                <MudTh>Number of Students</MudTh>
+        </thead>
+        <tbody>
+            @foreach (var exam in Exams)
+            {
+                <tr>
+                    <MudTd>@exam.Subject</MudTd>
+                    <MudTd>@exam.ExamYear</MudTd>
+                    <MudTd >@exam.ExamBranch</MudTd>
+                    <MudTd>@exam.StudentCount</MudTd>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+else
+{
+    <p>No exams submitted yet.</p>
+}

@@ -1,5 +1,6 @@
 ﻿@page "/summary"
 @attribute [Authorize]
+@inject ExamDataService ExamService
 <h5 class="pt-5">Total Students : @TotStudents</h5> <br/>
 
 <h5>No. of Blocks Required Currently: @BlocksRequired</h5><br />
@@ -27,6 +28,14 @@
     </MudSelect>
     </MudItem>
 </MudGrid>
+<MudStack>
+    <MudItem md="12">
+        <MudPaper Class="pa-4">
+            <h3>Submitted Exams</h3>
+            <ExamTable Exams="ExamService.GetSavedExams()" OnClear="ClearTableAndData" />
+        </MudPaper>
+    </MudItem>
+</MudStack>
 
 
 @code {
@@ -34,4 +43,9 @@
     private int BlocksRequired = 25;
     private DateTime? ExamDate = DateTime.Today;
     private int StartSelected { get; set; }
+    private void ClearTableAndData()
+    {
+        ExamService.ClearSavedExams();
+        StateHasChanged();
+    }
 }

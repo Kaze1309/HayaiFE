@@ -6,6 +6,7 @@ using HayaiFE.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.JSInterop;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 builder.Services.AddSingleton<ExamDataService>(); // Data persists across pages & users
+
 
 builder.Services.AddSingleton<IYearBranchSubjectService, YearBranchSubjectService>();
 builder.Services.AddAuthentication(options =>

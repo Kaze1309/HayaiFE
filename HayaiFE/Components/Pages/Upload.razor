@@ -8,86 +8,86 @@
 @attribute [Authorize]
 @inject IWebHostEnvironment Environment
 @inject ExamDataService ExamService
-@inject IJSRuntime JS
 
 <h3 class="pb-2 py-4">For Student</h3>
 <hr style="border: 2px solid black; margin-bottom:3rem;" />
 
-    <EditForm Model="examDetails" OnValidSubmit="SaveChanges">
-        <DataAnnotationsValidator></DataAnnotationsValidator>
-        <h3>Upload Seat Number Sheet.</h3>
-    <MudFileUpload @bind-Files="browserfile"
-                   Class="pl-3 pt-5"
-                   T="IBrowserFile"
-                   For="@(()=>browserfile)"
-                   OnFilesChanged="LoadFiles"
-                   Accept=".pdf">
-        <ActivatorContent>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.CloudUpload">
-                Browse Files
-            </MudButton>
-        </ActivatorContent>
-    </MudFileUpload>
+<MudGrid Spacing="3">
+    <MudItem md="12">
+        <MudPaper Class="pa-4">
+            <h3>Upload Seat Number Sheet</h3>
+            <EditForm Model="examDetails" OnValidSubmit="SaveChanges">
+                <DataAnnotationsValidator></DataAnnotationsValidator>
 
-    @if (exams != null && exams.Count > 0)
-    {
-        <MudSelect Label="Select Subject" MultiSelection="true" @bind-SelectedValues="selectedSubjects" >
-            @foreach (var subject in exams.SelectMany(e => e.ExtractedSubjects).DistinctBy(s => $"{s.Code}_{s.Name}_{s.Type}"))
-            {
-                var subjectDisplay = $"{subject.Code} {subject.Name} {subject.Type}";
-                <MudSelectItem Value="@subjectDisplay">@subjectDisplay</MudSelectItem>
-            }
-        </MudSelect>
-    }
+                <MudFileUpload @bind-Files="browserfile"
+                               Class="pt-3"
+                               T="IBrowserFile"
+                               For="@(()=>browserfile)"
+                               OnFilesChanged="LoadFiles"
+                               Accept=".pdf">
+                    <ActivatorContent>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.CloudUpload">
+                            Browse Files
+                        </MudButton>
+                    </ActivatorContent>
+                </MudFileUpload>
 
-    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Register</MudButton>
-    
-</EditForm>     
+                <MudSpacer />
 
-<hr style="border: 2px solid black; margin-top:3rem" />
-<h3>Submitted Exams</h3>
-@if (ExamService.GetSavedExams().Count > 0)
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Subject</th>
-                <th>Year</th>
-                <th>Number of Students</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var exam in ExamService.GetSavedExams())
-            {
-                <tr>
-                    <td>@exam.Subject</td>
-                    <td>@exam.ExamYear</td>
-                    <td>@exam.StudentCount</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-else
-{
-    <p>No exams submitted yet.</p>
-}
+                @if (exams != null && exams.Count > 0)
+                {
+                    <MudStack Style="width: 450px">
+                        <MudSelect Variant="Variant.Outlined" Label="Select Subject"
+                                   MultiSelection="true"
+                                   @bind-SelectedValues="selectedSubjects"
+                                   Class="">
+                            @foreach (var subject in exams.SelectMany(e => e.ExtractedSubjects)
+                        .DistinctBy(s => $"{s.Code}_{s.Name}_{s.Type}"))
+                            {
+                                var subjectDisplay = $"{subject.Code} {subject.Name} {subject.Type}";
+                                <MudSelectItem Value="@subjectDisplay">@subjectDisplay</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+                        
+                }
 
+                <MudSpacer />
 
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="mt-3">
+                    Register
+                </MudButton>
+            </EditForm>
+        </MudPaper>
+    </MudItem>
 
-<h3 class="pb-2 py-4">For Teachers</h3>
+    <MudItem md="12">
+        <MudPaper Class="pa-4">
+            <h3>Submitted Exams</h3>
+            <ExamTable Exams="ExamService.GetSavedExams()" OnClear="ClearTableAndData" />
+        </MudPaper>
+    </MudItem>
 
-    <MudFileUpload Class="pl-1 pt-5" T="IBrowserFile">
-        <ActivatorContent>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.CloudUpload">
-                Browse Files
-            </MudButton>
-        </ActivatorContent>
-    </MudFileUpload>
+    <MudItem md="12">
+        <MudPaper Class="pa-4">
+            <h3>For Teachers</h3>
+            <MudFileUpload Class="pl-1 pt-3 pb-3" T="IBrowserFile">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudUpload">
+                        Browse Files
+                    </MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
 
 @code {
     BranchWiseExamDetails examDetails = new();
@@ -97,9 +97,10 @@ else
     public List<Subject> subjects = new();
     public Dictionary<string, List<string>> seatNumbers = new();
     public string year;
+    public string branchName;
     public List<CreateExcel.ExamDetails> exams = new();
     public List<CreateExcel.ExamDetails> ExtractExamDetails { get; private set; } = new();
-   
+
     //file upload related
     const int MAX_FILESIZE = 5000 * 1024; // 5MB
     public IBrowserFile? browserfile{ get; set; }
@@ -107,7 +108,7 @@ else
     private string uploadedFilePath = string.Empty; // Store file path globally
 
     private List<string> uploadedFilePaths = new(); // Store paths of uploaded files
-    private string filePath{ get; set; }
+    public string FilePath { get; set; }
     private async Task LoadFiles(InputFileChangeEventArgs e)
     {
         foreach (var file in e.GetMultipleFiles())
@@ -122,13 +123,13 @@ else
                 }
 
                 string uniqueFileName = $"{file.Name}";
-                filePath = Path.Combine(uploadFolder, uniqueFileName); // Ensure `filePath` is set
+                FilePath = Path.Combine(uploadFolder, uniqueFileName); // Ensure `filePath` is set
 
-                await using FileStream fs = new(filePath, FileMode.Create);
+                await using FileStream fs = new(FilePath, FileMode.Create);
                 await file.OpenReadStream(MAX_FILESIZE).CopyToAsync(fs);
 
-                uploadedFilePaths.Add(filePath);
-                Console.WriteLine($"File saved at: {filePath}");
+                uploadedFilePaths.Add(FilePath);
+                Console.WriteLine($"File saved at: {FilePath}");
             }
             catch (Exception ex)
             {
@@ -137,9 +138,8 @@ else
         }
 
         // Process the uploaded file
-        subjects = extractFunction.ExtractSubjectsFromTable(filePath);
-        seatNumbers = extractFunction.ExtractStudentSeatNumbers(subjects, year, filePath);
-        ExtractExamDetails = extractFunction.ExtractExamDetails(filePath, year, subjects, seatNumbers);
+        
+        ExtractExamDetails = extractFunction.ExtractExamDetails(FilePath);
 
         ExamService.SetExamDetails(ExtractExamDetails);
         exams = ExamService.GetExamDetails();
@@ -177,7 +177,8 @@ else
                             {
                                 Subject = selectedSubject,
                                 ExamYear = selectedExam.ExamYear,
-                                StudentCount = studentCount
+                                StudentCount = studentCount,
+                                ExamBranch = selectedExam.ExamBranch
                             };
 
                         ExamService.AddSavedExam(savedExam);
@@ -187,6 +188,10 @@ else
         }
     }
 
-
+    private void ClearTableAndData()
+    {
+        ExamService.ClearSavedExams();
+        StateHasChanged();
+    }
 }
 

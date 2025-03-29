@@ -4,21 +4,20 @@
 @using HayaiFE;
 @inject HayaiFE.Data.CreateExcel service
 @inject Microsoft.JSInterop.IJSRuntime JS
-
 @attribute [Authorize]
 
 <MudText>@FileName</MudText>
-<MudButton Variant="Variant.Filled" >Download</MudButton>
+<MudButton Variant="Variant.Filled" OnClick="OutSideBlock">Download</MudButton>
 
 @code {
     MemoryStream excelStream;
     public string FileName = "OutSideBlock.pdf";
 
-    // protected async Task OutSideBlock()
-    // {
-    //     Use Task.Run to offload work to a background thread
-    //     excelStream = await Task.Run(() => service.CreateDocument());
+    protected async Task OutSideBlock()
+    {
+        // Use Task.Run to offload work to a background thread
+        excelStream = await Task.Run(() => service.CreateDocument());
 
-    //     await JS.SaveAs(FileName, excelStream.ToArray());
-    // }
+        await JS.SaveAs(FileName, excelStream.ToArray());
+    }
 }

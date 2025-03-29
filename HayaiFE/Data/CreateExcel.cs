@@ -12,8 +12,7 @@ namespace HayaiFE.Data
 {
     public class CreateExcel
     {
-
-
+        public string FILEPATH = "Data\\Sample.pdf";
         public string ExtractYear(string filePath)
         {
             using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -25,6 +24,24 @@ namespace HayaiFE.Data
             Match match = yearRegex.Match(firstPageText);
 
             return match.Success ? match.Groups[1].Value : "Unknown";
+        }
+        public static string ExtractBranchName(string filePath)
+        {
+            using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            using PdfLoadedDocument loadedDocument = new PdfLoadedDocument(docStream);
+
+            string firstPageText = loadedDocument.Pages[0].ExtractText();
+
+            // More flexible regex to match different formats
+            string pattern = @"(?:F\.E\.|S\.E\.|T\.E\.|B\.E\.)\s*\(\s*\d{4}\s*PAT\.\s*\)\s*\(\s*([^()]+)\s*\)";
+            Match match = Regex.Match(firstPageText, pattern, RegexOptions.IgnoreCase);
+
+            if (match.Success)
+            {
+                return match.Groups[1].Value.Trim();
+            }
+
+            return "NA"; // Return "Unknown" if branch name is not found
         }
 
         public List<Subject> ExtractSubjectsFromTable(string filePath)
@@ -116,12 +133,12 @@ namespace HayaiFE.Data
         }
 
 
-        public MemoryStream CreateDocument(string filePath)
+        public MemoryStream CreateDocument()
         {
-            string year = ExtractYear(filePath);
-            List<Subject> subjects = ExtractSubjectsFromTable(filePath);
-            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year, filePath);
-
+            string year = ExtractYear(FILEPATH);
+            List<Subject> subjects = ExtractSubjectsFromTable(FILEPATH);
+            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year, FILEPATH);
+            string branchName = ExtractBranchName(FILEPATH);
             PdfDocument newPdf = new PdfDocument();
             PdfFont font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
             PdfBrush brush = PdfBrushes.Black;
@@ -131,7 +148,7 @@ namespace HayaiFE.Data
             PdfGraphics graphics = page.Graphics;
             float yPosition = 20;
 
-            graphics.DrawString($"Extracted Subjects & Seat Numbers ({year})",
+            graphics.DrawString($"Extracted Subjects & Seat Numbers ({year} {branchName})",
                                 new PdfStandardFont(PdfFontFamily.Helvetica, 16, PdfFontStyle.Bold),
                                 brush, new Syncfusion.Drawing.PointF(10, yPosition));
             yPosition += 30;
@@ -192,34 +209,38 @@ namespace HayaiFE.Data
 
             return pdfStream;
         }
-        public List<ExamDetails> ExtractExamDetails(string filePath, string year, List<Subject> subjects, Dictionary<string, List<string>> subjectSeats)
+        public List<ExamDetails> ExtractExamDetails(string filePath)
         {
-            year = ExtractYear(filePath);
-            subjects = ExtractSubjectsFromTable(filePath);
-            subjectSeats = ExtractStudentSeatNumbers(subjects, year, filePath);
+            string year = ExtractYear(filePath);
+            string branchName = ExtractBranchName(filePath);
+            List<Subject> extractedSubjects = ExtractSubjectsFromTable(filePath);
+            Dictionary<string, List<string>> extractedSeats = ExtractStudentSeatNumbers(extractedSubjects, year, filePath);
 
             List<ExamDetails> examDetailsList = new List<ExamDetails>();
 
-            foreach (var subject in subjects)
+            foreach (var subject in extractedSubjects)
             {
                 string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
 
                 examDetailsList.Add(new ExamDetails
                 {
                     ExamYear = year,
-                    ExtractedSubjects = subjects,
-                    ExtractedSeatNumbers = subjectSeats
+                    ExtractedSubjects = new List<Subject> { subject },
+                    ExamBranch = branchName,  // ✅ Branch is now stored correctly// ✅ Store only this subject
+                    ExtractedSeatNumbers = extractedSeats.ContainsKey(subjectKey) ? new Dictionary<string, List<string>> { { subjectKey, extractedSeats[subjectKey] } } : new Dictionary<string, List<string>>()
                 });
             }
 
             return examDetailsList;
         }
 
+
         // Class to store extracted details
         public class ExamDetails
         {
             public string ExamYear { get; set; }
             public List<Subject> ExtractedSubjects { get; set; }
+            public string ExamBranch { get; set; }
             public Dictionary<string, List<string>> ExtractedSeatNumbers { get; set; }
         }
 

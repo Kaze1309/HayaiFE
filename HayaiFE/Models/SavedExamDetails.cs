@@ -4,6 +4,7 @@
     {
         public string Subject { get; set; }
         public string ExamYear { get; set; }
+        public string ExamBranch { get; set; }
         public int StudentCount { get; set; }
     }
 
