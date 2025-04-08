@@ -7,14 +7,6 @@
     <UserSecretsId>aspnet-HayaiFE-34b39f0b-4f3e-4666-84cf-f736e6429df4</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Services\BlockStudentService.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Services\BlockStudentService.cs" />
-  </ItemGroup>
-
 
   <ItemGroup>
     <PackageReference Include="Blazored.SessionStorage" Version="2.4.0" />

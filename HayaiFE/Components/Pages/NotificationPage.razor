@@ -1,23 +1,32 @@
 ﻿@page "/notification"
 
 @using System.IO;
-@using HayaiFE;
-@inject HayaiFE.Data.CreateExcel service
+@using HayaiFE.Services;
+@using HayaiFE.Data;
+@using HayaiFE.Models;
+@inject CreateExcel service
+@inject ExamDataService examDataService
 @inject Microsoft.JSInterop.IJSRuntime JS
+@inject TeacherDataService TdService
+@inject SummaryService SummaryService
 @attribute [Authorize]
 
 <MudText>@FileName</MudText>
 <MudButton Variant="Variant.Filled" OnClick="OutSideBlock">Download</MudButton>
-
+<h1>@TdService.GetTeacherData().Count</h1>
 @code {
     MemoryStream excelStream;
+
+
     public string FileName = "OutSideBlock.pdf";
-
-    protected async Task OutSideBlock()
+    private async Task OutSideBlock()
     {
-        // Use Task.Run to offload work to a background thread
-        excelStream = await Task.Run(() => service.CreateDocument());
+        
+        int TotalStudents = examDataService.GetSavedExams().Sum(e => e.StudentCount);
+        // Generate the document in a background thread
+        excelStream = await Task.Run(() => service.CreateDocument(examDataService.GetSavedExams(), TotalStudents , SummaryService.GetSummary()));
 
-        await JS.SaveAs(FileName, excelStream.ToArray());
+        // Convert to byte array and trigger download
+        await JS.InvokeVoidAsync("saveAsFile", FileName, Convert.ToBase64String(excelStream.ToArray()));
     }
 }

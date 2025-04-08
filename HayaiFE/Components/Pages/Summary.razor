@@ -1,51 +1,105 @@
 ﻿@page "/summary"
 @attribute [Authorize]
+@using HayaiFE.Models
+@using HayaiFE.Services
 @inject ExamDataService ExamService
-<h5 class="pt-5">Total Students : @TotStudents</h5> <br/>
+@inject SummaryService SummaryService
+@inject TeacherDataService TdService
 
-<h5>No. of Blocks Required Currently: @BlocksRequired</h5><br />
 
-<h5>No. of Teachers Required : @BlocksRequired + 2(Sub.)</h5>
+<MudText Typo="@Typo.h6" Class="mt-4">Total Students: @totalStudents</MudText>
+<MudText Typo="@Typo.h6">No. of Blocks Required Currently: @blocksRequired</MudText>
+<MudText Typo="@Typo.h6">No. of Teachers Required: @(blocksRequired + 2) (Sub.)</MudText>
 
-<hr style="border: 2px solid black; margin-top:3rem" />
+<EditForm Model="summary" OnValidSubmit="HandleValidSubmit">
+    <MudDivider Class="my-4" />
 
-<MudText Typo="@Typo.h6">Details of Examination</MudText>
-<MudGrid>
-    <MudItem xs="3">
-        <MudDatePicker AdditionalDateClassesFunc="@((DateTime dt)=>((int)dt.DayOfWeek == 0 ? "red-text text-accent-4" : ""))" 
-                       Label="Select Date of Exam" @bind-Value="@ExamDate" />
-    </MudItem>
-</MudGrid>
+    <MudGrid>
+        <MudItem xs="3">
+            <MudDatePicker Label="Select Date of Exam" @bind-Date="summary.ExamDate" />
+        </MudItem>
+        <MudItem xs="3">
+            <MudTimePicker Label="Start Time" @bind-Time="summary.StartTime" />
+        </MudItem>
+        <MudItem xs="3">
+            <MudTimePicker Label="End Time" @bind-Time="summary.EndTime" />
+        </MudItem>
+    </MudGrid>
 
-<MudGrid>
-    <MudItem xs="3" Class="mt-5">
-    <MudSelect Variant="Variant.Outlined" Value="@StartSelected">
-        <MudSelectItem Value="0" Disabled="true">Choose Start Block</MudSelectItem>
-        @foreach (var item in Enumerable.Range(1, BlocksRequired).ToArray())
-        {
-            <MudSelectItem Value="@item">@item</MudSelectItem>
-        }
-    </MudSelect>
-    </MudItem>
-</MudGrid>
-<MudStack>
-    <MudItem md="12">
-        <MudPaper Class="pa-4">
-            <h3>Submitted Exams</h3>
-            <ExamTable Exams="ExamService.GetSavedExams()" OnClear="ClearTableAndData" />
-        </MudPaper>
-    </MudItem>
-</MudStack>
+    <MudGrid>
+        <MudItem xs="3" Class="mt-5">
+            <MudTextField Label="Max Students Per Block"
+                          @bind-Value="summary.MaxStudentsPerBlock"
+                          T="int"
+                          Immediate="true"/>
+        </MudItem>
+    </MudGrid>
 
+    <MudGrid>
+        <MudItem xs="3" Class="mt-5">
+            <MudSelect Label="Start Block" T="int" @bind-Value="summary.StartBlock" >
+                <MudSelectItem Value="0" Disabled="true">Choose Start Block</MudSelectItem>
+                @if (blocksRequired > 0)
+                {
+                    @foreach (var item in Enumerable.Range(1, blocksRequired))
+                    {
+                        <MudSelectItem Value="@item">@item</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Submit" Class="mt-4">
+        Submit Exam Details
+    </MudButton>
+
+    <MudStack Class="mt-6">
+        <MudItem md="12">
+            <MudPaper Class="pa-4">
+                <h3>Submitted Exams</h3>
+                <ExamTable Exams="ExamService.GetSavedExams()" OnClear="ClearTableAndData" />
+            </MudPaper>
+        </MudItem>
+    </MudStack>
+</EditForm>
+<h1>Assistant Professors Uploaded: <b>@TdService.GetTeacherData().Count</b></h1>
 
 @code {
-    private int TotStudents = 25*30;
-    private int BlocksRequired = 25;
-    private DateTime? ExamDate = DateTime.Today;
-    private int StartSelected { get; set; }
+    private SummaryDetails summary = new();
+
+    private int totalStudents;
+    private int blocksRequired;
+    protected override void OnInitialized()
+    {
+        totalStudents = ExamService.GetSavedExams().Sum(e => e.StudentCount);
+        summary.MaxStudentsPerBlock = 30;
+        UpdateBlockCount();
+    }
+
+
+    private void UpdateBlockCount()
+    {
+        if (summary.MaxStudentsPerBlock > 0)
+        {
+            blocksRequired = (int)Math.Ceiling((double)totalStudents / summary.MaxStudentsPerBlock);
+        }
+    }
+
+    private void HandleValidSubmit()
+    {
+        SummaryService.SaveSummary(summary);
+    }
+
     private void ClearTableAndData()
     {
         ExamService.ClearSavedExams();
+        totalStudents = 0;
+        blocksRequired = 0;
+        summary = new SummaryDetails
+        {
+            MaxStudentsPerBlock = 30
+        };
         StateHasChanged();
     }
 }

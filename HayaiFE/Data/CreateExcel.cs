@@ -8,11 +8,14 @@ using Syncfusion.Pdf;
 using Syncfusion.Pdf.Graphics;
 using Syncfusion.Pdf.Parsing;
 using HayaiFE.Models;
+using Syncfusion.XlsIO;
+using Syncfusion.XlsIORenderer;
+using System.Drawing;
 namespace HayaiFE.Data
 {
     public class CreateExcel
     {
-        public string FILEPATH = "Data\\Sample.pdf";
+
         public string ExtractYear(string filePath)
         {
             using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -133,82 +136,131 @@ namespace HayaiFE.Data
         }
 
 
-        public MemoryStream CreateDocument()
+        public MemoryStream CreateDocument(List<SavedExamDetails> savedExamDetails, int totalStudents, SummaryDetails summaryDetails)
         {
-            string year = ExtractYear(FILEPATH);
-            List<Subject> subjects = ExtractSubjectsFromTable(FILEPATH);
-            Dictionary<string, List<string>> subjectSeats = ExtractStudentSeatNumbers(subjects, year, FILEPATH);
-            string branchName = ExtractBranchName(FILEPATH);
-            PdfDocument newPdf = new PdfDocument();
-            PdfFont font = new PdfStandardFont(PdfFontFamily.Helvetica, 12);
-            PdfBrush brush = PdfBrushes.Black;
-            PdfStringFormat format = new PdfStringFormat() { WordWrap = PdfWordWrapType.Word };
-
-            PdfPage page = newPdf.Pages.Add();
-            PdfGraphics graphics = page.Graphics;
-            float yPosition = 20;
-
-            graphics.DrawString($"Extracted Subjects & Seat Numbers ({year} {branchName})",
-                                new PdfStandardFont(PdfFontFamily.Helvetica, 16, PdfFontStyle.Bold),
-                                brush, new Syncfusion.Drawing.PointF(10, yPosition));
-            yPosition += 30;
-
-            foreach (var subject in subjects)
+            using (ExcelEngine excelEngine = new ExcelEngine())
             {
-                string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
+                IApplication application = excelEngine.Excel;
+                application.DefaultVersion = ExcelVersion.Xlsx;
 
-                graphics.DrawString($"Code: {subject.Code}  -  Name: {subject.Name}  - Type: {subject.Type}",
-                                    font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
-                yPosition += 20;
+                IWorkbook workbook = application.Workbooks.Create(1);
+                int maxStudentsPerBlock = summaryDetails.MaxStudentsPerBlock;
+                int globalBlockCounter = 1; // <<< NEW GLOBAL BLOCK COUNTER
 
-                if (subjectSeats.ContainsKey(subjectKey) && subjectSeats[subjectKey].Count > 0)
+                foreach (var exam in savedExamDetails)
                 {
-                    graphics.DrawString("Seat Numbers:", font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
-                    yPosition += 20;
+                    string year = exam.ExamYear;
+                    string branch = exam.ExamBranch;
+                    string subject = exam.Subject;
+                    List<string> seatNumbers = exam.SavedExtractedSeatNumbers;
 
-                    // ✅ Print seat numbers in chunks for readability
-                    int chunkSize = 10; // Adjust the number of seats per line if necessary
-                    var seatChunks = subjectSeats[subjectKey]
-                        .Select((seat, index) => new { seat, index })
-                        .GroupBy(x => x.index / chunkSize)
-                        .Select(g => string.Join(", ", g.Select(x => x.seat)));
+                    DateTime dateTimeNormalized = Convert.ToDateTime(summaryDetails.ExamDate);
+                    string dayOfExam = dateTimeNormalized.DayOfWeek.ToString();
+                    string dateOfExam = dateTimeNormalized.ToString("dd/MM/yyyy"); // Fix capitalization
+                    TimeSpan? startTimeOfExam = summaryDetails.StartTime;
+                    TimeSpan? endTimeOfExam = summaryDetails.EndTime;
 
-                    foreach (string seatLine in seatChunks)
+                    int studentCount = seatNumbers.Count;
+                    int blockCount = (int)Math.Ceiling((double)studentCount / maxStudentsPerBlock);
+
+                    for (int localBlock = 0; localBlock < blockCount; localBlock++)
                     {
-                        graphics.DrawString(seatLine, font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
-                        yPosition += 20;
+                        int startIndex = localBlock * maxStudentsPerBlock;
+                        int endIndex = Math.Min(startIndex + maxStudentsPerBlock, studentCount);
 
-                        // ✅ Ensure new page if content exceeds the limit
-                        if (yPosition > 750)
+                        IWorksheet sheet = workbook.Worksheets.Create();
+                        sheet.Range["A1:C1"].Merge();
+                        sheet.Range["A1"].Text = $"Block Number: {globalBlockCounter}";
+                        sheet.Range["A2:C2"].Merge();
+                        sheet.Range["A2"].Text = $"Day & Date: {dayOfExam} {dateOfExam}";
+                        sheet.Range["A3:C3"].Merge();
+                        sheet.Range["A3"].Text = $"Time: {startTimeOfExam} TO {endTimeOfExam}";
+                        sheet.Range["A4:C4"].Merge();
+                        sheet.Range["A4"].Text = $"{year} {branch} 2019 PATTERN";
+                        sheet.Range["A5:C5"].Merge();
+                        sheet.Range["A5"].Text = $"{subject}";
+
+                        sheet.Range["A1"].ColumnWidth = 36;
+                        sheet.Range["A1:C5"].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+                        sheet.Range["A1:C5"].CellStyle.Font.Bold = true;
+                        sheet.Range["A4:C4"].CellStyle.Color = Syncfusion.Drawing.Color.FromArgb(220, 220, 220);
+                        sheet.Range["A5:C5"].CellStyle.Color = Syncfusion.Drawing.Color.FromArgb(220, 220, 220);
+
+                        sheet.Range["A7"].Text = "Serial No.";
+                        sheet.Range["B7"].Text = "Bench No.";
+                        sheet.Range["C7"].Text = "Seat Numbers";
+                        sheet.Range["A7:C7"].CellStyle.Font.Bold = true;
+
+                        int row = 8;
+                        for (int i = startIndex; i < endIndex; i++)
                         {
-                            page = newPdf.Pages.Add();
-                            graphics = page.Graphics;
-                            yPosition = 20;
+                            sheet.Range[$"C{row}"].Text = seatNumbers[i];
+                            int serial = (i - startIndex) + 1;
+                            sheet.Range[$"A{row}"].Number = serial;
+                            sheet.Range[$"B{row}"].Number = serial;
+                            row++;
                         }
+
+                        globalBlockCounter++; // <<< INCREMENT GLOBALLY
                     }
                 }
-                else
-                {
-                    graphics.DrawString("No seat numbers found!", font, brush, new Syncfusion.Drawing.PointF(10, yPosition), format);
-                    yPosition += 20;
-                }
 
-                // ✅ Ensure new page if content exceeds the limit
-                if (yPosition > 750)
+                // Convert workbook to PDF and return stream
+                MemoryStream pdfStream = new MemoryStream();
+                XlsIORenderer renderer = new XlsIORenderer();
+                PdfDocument document = renderer.ConvertToPDF(workbook);
+                document.Save(pdfStream);
+                document.Close(true);
+                pdfStream.Position = 0;
+                return pdfStream;
+            }
+        }
+
+
+
+        public List<Teacher> ExtractAssistantProfessors(string filePath)
+        {
+            List<Teacher> associateProfessors = new();
+
+            using (ExcelEngine excelEngine = new ExcelEngine())
+            {
+                IApplication application = excelEngine.Excel;
+                application.DefaultVersion = ExcelVersion.Xlsx;
+
+                using FileStream inputStream = new(filePath, FileMode.Open, FileAccess.Read);
+                IWorkbook workbook = application.Workbooks.Open(inputStream);
+                IWorksheet worksheet = workbook.Worksheets[0];
+
+                int startRow = 2; // Assuming headers on row 1
+                int lastRow = worksheet.UsedRange.LastRow;
+
+                for (int row = startRow; row <= lastRow; row++)
                 {
-                    page = newPdf.Pages.Add();
-                    graphics = page.Graphics;
-                    yPosition = 20;
+                    string srNoText = worksheet[row, 1].DisplayText?.Trim();
+                    string name = worksheet[row, 2].DisplayText?.Trim();
+                    string dept = worksheet[row, 3].DisplayText?.Trim();
+                    string designation = worksheet[row, 4].DisplayText?.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(name) &&
+                        designation.Equals("Assistant Professor", StringComparison.OrdinalIgnoreCase))
+                    {
+                        associateProfessors.Add(new Teacher
+                        {
+                            SrNo = int.TryParse(srNoText, out int sn) ? sn : 0,
+                            Name = name,
+                            Department = dept,
+                            Designation = designation
+                        });
+                    }
                 }
             }
 
-            MemoryStream pdfStream = new MemoryStream();
-            newPdf.Save(pdfStream);
-            newPdf.Close(true);
-            pdfStream.Position = 0;
-
-            return pdfStream;
+            return associateProfessors;
         }
+
+
+
+
         public List<ExamDetails> ExtractExamDetails(string filePath)
         {
             string year = ExtractYear(filePath);
@@ -247,9 +299,3 @@ namespace HayaiFE.Data
     }
 
 }
-
-
-
-
-
-

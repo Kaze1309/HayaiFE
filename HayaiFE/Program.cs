@@ -1,4 +1,3 @@
-using Blazored.SessionStorage;
 using HayaiFE.Components;
 using HayaiFE.Components.Account;
 using HayaiFE.Data;
@@ -25,9 +24,9 @@ builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 builder.Services.AddSingleton<ExamDataService>(); // Data persists across pages & users
+builder.Services.AddSingleton<SummaryService>();
+builder.Services.AddSingleton<TeacherDataService>();
 
-
-builder.Services.AddSingleton<IYearBranchSubjectService, YearBranchSubjectService>();
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = IdentityConstants.ApplicationScheme;
