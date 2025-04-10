@@ -9,15 +9,12 @@
 
 
   <ItemGroup>
-    <PackageReference Include="Blazored.SessionStorage" Version="2.4.0" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="8.*" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.*" />
     <PackageReference Include="MudBlazor" Version="7.*" />
     <PackageReference Include="Extensions.MudBlazor.StaticInput" Version="2.*" />
-    <PackageReference Include="Syncfusion.Blazor.Inputs" Version="28.2.3" />
-    <PackageReference Include="Syncfusion.Blazor.Themes" Version="28.2.3" />
     <PackageReference Include="Syncfusion.XlsIO.Net.Core" Version="28.2.4" />
     <PackageReference Include="Syncfusion.XlsIORenderer.Net.Core" Version="28.2.4" />
   </ItemGroup>

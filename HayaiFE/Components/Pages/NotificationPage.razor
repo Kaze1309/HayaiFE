@@ -6,27 +6,59 @@
 @using HayaiFE.Models;
 @inject CreateExcel service
 @inject ExamDataService examDataService
+
 @inject Microsoft.JSInterop.IJSRuntime JS
 @inject TeacherDataService TdService
 @inject SummaryService SummaryService
+@inject ExamBlockService EBService
 @attribute [Authorize]
 
-<MudText>@FileName</MudText>
+<MudText>@OutSideBlockFile</MudText>
 <MudButton Variant="Variant.Filled" OnClick="OutSideBlock">Download</MudButton>
-<h1>@TdService.GetTeacherData().Count</h1>
+
+<MudText>Allotment Sheet.pdf</MudText>
+<MudButton Variant="Variant.Filled" OnClick="AssignedTeachers">Download</MudButton>
+
+
+<MudText>noticebaord Sheet.pdf</MudText>
+<MudButton Variant="Variant.Filled" OnClick="NoticeBoardSheet">Download</MudButton>
+
 @code {
     MemoryStream excelStream;
 
-
-    public string FileName = "OutSideBlock.pdf";
+    MemoryStream allotStream;
+    MemoryStream noticeStream;
+    public string OutSideBlockFile = "OutSideBlock.pdf";
+    public string AssignmentFile = "AssignedTeachers.xlsx";
+    public string NoticeBoardFile = "NoticeBoard.xlsx";
     private async Task OutSideBlock()
     {
-        
+
         int TotalStudents = examDataService.GetSavedExams().Sum(e => e.StudentCount);
         // Generate the document in a background thread
-        excelStream = await Task.Run(() => service.CreateDocument(examDataService.GetSavedExams(), TotalStudents , SummaryService.GetSummary()));
+        excelStream = service.CreateDocument(examDataService.GetSavedExams(), TotalStudents , SummaryService.GetSummary() ,await EBService.GetAllBlocksAsync());
 
         // Convert to byte array and trigger download
-        await JS.InvokeVoidAsync("saveAsFile", FileName, Convert.ToBase64String(excelStream.ToArray()));
+        await JS.InvokeVoidAsync("saveAsFile", OutSideBlockFile, Convert.ToBase64String(excelStream.ToArray()));
+    }
+
+    private async Task AssignedTeachers()
+    {
+        allotStream = service.FinalReport(await EBService.GetAllBlocksAsync(), TdService.GetTeacherData());
+
+
+    // Convert to byte array and trigger download
+        await JS.InvokeVoidAsync("saveAsFile", AssignmentFile, Convert.ToBase64String(allotStream.ToArray()));
+
+    }
+
+    private async Task NoticeBoardSheet()
+    {
+        noticeStream = service.GenerateNoticeBoardReport(await EBService.GetAllBlocksAsync(), examDataService.GetSavedExams(),SummaryService.GetSummary());
+
+
+        // Convert to byte array and trigger download
+        await JS.InvokeVoidAsync("saveAsFile", NoticeBoardFile, Convert.ToBase64String(noticeStream.ToArray()));
+
     }
 }

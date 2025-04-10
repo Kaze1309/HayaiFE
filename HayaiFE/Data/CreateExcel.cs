@@ -110,7 +110,18 @@ namespace HayaiFE.Data
 
             foreach (var subject in subjects)
             {
-                string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
+
+                string NormalizeKey(string rawKey)
+                {
+                    if (string.IsNullOrWhiteSpace(rawKey)) return "";
+
+                    // Collapse multiple spaces → single space
+                    string collapsed = System.Text.RegularExpressions.Regex.Replace(rawKey, @"\s+", " ");
+
+                    // Remove leading/trailing whitespace and make consistent casing (optional)
+                    return collapsed.Trim();
+                }
+                string subjectKey = NormalizeKey($"{subject.Code}_{subject.Name}_{subject.Type}");
 
                 // ✅ Updated Regex to match subjects with specific type
                 string pattern = @$"SUB:\s*{subject.Code}\s+{Regex.Escape(subject.Name)}\s*{Regex.Escape(subject.Type)}.*?NO\.OF STUDENTS:\s*\d+\s*([\s\S]+?)(?=\nSUB:\s*\d+|\nReport|$)";
@@ -135,8 +146,174 @@ namespace HayaiFE.Data
             return subjectSeats;
         }
 
+        public MemoryStream FinalReport(List<BlockData> blocks, List<Teacher> teachers)
+        {
+            using (ExcelEngine excelEngine = new ExcelEngine())
+            {
+                IApplication application = excelEngine.Excel;
+                application.DefaultVersion = ExcelVersion.Xlsx;
+                IWorkbook workbook = application.Workbooks.Create(1);
+                IWorksheet sheet = workbook.Worksheets[0];
+                sheet.Name = "Teacher Assignment";
 
-        public MemoryStream CreateDocument(List<SavedExamDetails> savedExamDetails, int totalStudents, SummaryDetails summaryDetails)
+                // Header
+                sheet.Range["A1"].Text = "Block No";
+                sheet.Range["D1"].Text = "Subject";
+                sheet.Range["E1"].Text = "Branch";
+                sheet.Range["F1"].Text = "Assigned Teacher";
+                sheet.Range["G1"].Text = "Teacher Department";
+
+                int row = 2;
+                var availableTeachers = new List<Teacher>(teachers);
+                Random rng = new Random();
+
+                foreach (var block in blocks)
+                {
+                    // Skip unassignable blocks (null or empty branch)
+                    if (string.IsNullOrWhiteSpace(block.Branch))
+                    {
+                        block.AssignedTeacher = "Branch not specified";
+                        block.AssignedTeacherDepartment = "-";
+                        continue;
+                    }
+
+                    // Randomize eligible teachers
+                    var eligibleTeachers = availableTeachers
+                        .Where(t => !string.Equals(t.Department?.Trim(), block.Branch?.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(_ => rng.Next()) // <- Random shuffle
+                        .ToList();
+
+                    if (eligibleTeachers.Any())
+                    {
+                        var selected = eligibleTeachers.First();
+                        block.AssignedTeacher = selected.Name;
+                        block.AssignedTeacherDepartment = selected.Department;
+
+                        availableTeachers.Remove(selected);
+
+                        // Refill teacher pool if exhausted
+                        if (availableTeachers.Count == 0)
+                            availableTeachers = new List<Teacher>(teachers);
+                    }
+                    else
+                    {
+                        block.AssignedTeacher = "No eligible teacher";
+                        block.AssignedTeacherDepartment = "-";
+                    }
+
+                    // Write to Excel
+                    sheet.Range[$"A{row}"].Number = block.BlockNumber;
+                    sheet.Range[$"D{row}"].Text = block.Subject;
+                    sheet.Range[$"E{row}"].Text = block.Branch;
+                    sheet.Range[$"F{row}"].Text = block.AssignedTeacher;
+                    sheet.Range[$"G{row}"].Text = block.AssignedTeacherDepartment;
+                    row++;
+                }
+
+                // Save to memory stream
+                MemoryStream stream = new MemoryStream();
+                workbook.SaveAs(stream);
+                stream.Position = 0;
+                return stream;
+            }
+        }
+        public MemoryStream GenerateNoticeBoardReport(
+    List<BlockData> blocks,
+    List<SavedExamDetails> savedExamDetailsList,
+    SummaryDetails summaryDetails)
+        {
+            using ExcelEngine excelEngine = new ExcelEngine();
+            IApplication application = excelEngine.Excel;
+            application.DefaultVersion = ExcelVersion.Xlsx;
+            IWorkbook workbook = application.Workbooks.Create(1);
+            IWorksheet sheet = workbook.Worksheets[0];
+
+            // Date and Time
+            DateTime dateTimeNormalized = Convert.ToDateTime(summaryDetails.ExamDate);
+            string examDate = dateTimeNormalized.ToString("dddd dd-MM-yyyy");
+            string examTime = $"{summaryDetails.StartTime:hh\\:mm} TO {summaryDetails.EndTime:hh\\:mm}";
+
+            // Title
+            sheet.Range["A1:G1"].Merge();
+            sheet.Range["A1"].Text = $"SPPU NOV./DEC. 2024 THEORY EXAMINATION, Date : {examDate}, Time : {examTime}.";
+            sheet.Range["A1"].CellStyle.Font.Bold = true;
+            sheet.Range["A1"].CellStyle.Font.Size = 14;
+            sheet.Range["A1"].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+
+            // Headers
+            string[] headers = {
+        "YEAR, BRANCH", "SUBJECT WITH CODE", "BLOCK NO", "ROOM NO", "FLOOR", "SEAT NO. FROM", "SEAT NO. TO"
+    };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                sheet.Range[2, i + 1].Text = headers[i];
+                sheet.Range[2, i + 1].CellStyle.Font.Bold = true;
+                sheet.Range[2, i + 1].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+            }
+
+            int row = 3;
+
+            // Filter out incomplete blocks and group by subject
+            var subjectGroups = blocks
+                .Where(b => !string.IsNullOrWhiteSpace(b.AssignedTeacher) &&
+                            !string.IsNullOrWhiteSpace(b.Subject) &&
+                            !string.IsNullOrWhiteSpace(b.StartingSeatNumber) &&
+                            !string.IsNullOrWhiteSpace(b.EndingSeatNumber))
+                .GroupBy(b => b.Subject);
+
+            foreach (var subjectGroup in subjectGroups)
+            {
+                int groupStartRow = row;
+                int groupRowCount = subjectGroup.Count();
+
+                // Get savedExamDetails that matches subject
+                var matchingDetails = savedExamDetailsList
+                    .FirstOrDefault(s => s.Subject.Equals(subjectGroup.Key, StringComparison.OrdinalIgnoreCase));
+
+                string yearBranch = matchingDetails != null
+                    ? $"{matchingDetails.ExamYear}, {matchingDetails.ExamBranch}"
+                    : "UNKNOWN";
+
+                foreach (var block in subjectGroup)
+                {
+                    sheet.Range[$"A{row}"].Text = yearBranch;
+                    sheet.Range[$"C{row}"].Number = block.BlockNumber;
+                    sheet.Range[$"D{row}"].Text = block.RoomNo ?? "N/A";
+                    sheet.Range[$"E{row}"].Text = block.BlockFloor.ToString();
+                    sheet.Range[$"F{row}"].Text = block.StartingSeatNumber ?? "N/A";
+                    sheet.Range[$"G{row}"].Text = block.EndingSeatNumber ?? "N/A";
+
+                    row++;
+                }
+
+                // Merge subject cell vertically across all rows in this group
+                string mergeRange = $"B{groupStartRow}:B{groupStartRow + groupRowCount - 1}";
+                sheet.Range[mergeRange].Merge();
+                sheet.Range[$"B{groupStartRow}"].Text = subjectGroup.Key;
+                sheet.Range[mergeRange].CellStyle.VerticalAlignment = ExcelVAlign.VAlignCenter;
+                sheet.Range[mergeRange].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+                sheet.Range[mergeRange].CellStyle.Font.Bold = true;
+            }
+
+            // Borders only for the entire filled table (excluding merged titles)
+            string fullTableRange = $"A2:G{row - 1}";
+            sheet.Range[fullTableRange].CellStyle.Borders.LineStyle = ExcelLineStyle.Thin;
+
+            // Auto fit
+            sheet.UsedRange.AutofitColumns();
+
+            // Save to memory stream
+            using MemoryStream stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            stream.Position = 0;
+            return stream;
+        }
+
+
+
+
+        public MemoryStream CreateDocument(List<SavedExamDetails> savedExamDetails, int totalStudents, SummaryDetails summaryDetails, List<BlockData> blockDatas)
         {
             using (ExcelEngine excelEngine = new ExcelEngine())
             {
@@ -145,7 +322,8 @@ namespace HayaiFE.Data
 
                 IWorkbook workbook = application.Workbooks.Create(1);
                 int maxStudentsPerBlock = summaryDetails.MaxStudentsPerBlock;
-                int globalBlockCounter = 1; // <<< NEW GLOBAL BLOCK COUNTER
+                int globalBlockCounter = summaryDetails.StartBlock;
+                int MaxBlockNumber = 35; // <<< wrap around if exceeded
 
                 foreach (var exam in savedExamDetails)
                 {
@@ -156,7 +334,7 @@ namespace HayaiFE.Data
 
                     DateTime dateTimeNormalized = Convert.ToDateTime(summaryDetails.ExamDate);
                     string dayOfExam = dateTimeNormalized.DayOfWeek.ToString();
-                    string dateOfExam = dateTimeNormalized.ToString("dd/MM/yyyy"); // Fix capitalization
+                    string dateOfExam = dateTimeNormalized.ToString("MM/dd/yyyy");
                     TimeSpan? startTimeOfExam = summaryDetails.StartTime;
                     TimeSpan? endTimeOfExam = summaryDetails.EndTime;
 
@@ -168,6 +346,7 @@ namespace HayaiFE.Data
                         int startIndex = localBlock * maxStudentsPerBlock;
                         int endIndex = Math.Min(startIndex + maxStudentsPerBlock, studentCount);
 
+                        // Create worksheet for this block
                         IWorksheet sheet = workbook.Worksheets.Create();
                         sheet.Range["A1:C1"].Merge();
                         sheet.Range["A1"].Text = $"Block Number: {globalBlockCounter}";
@@ -201,8 +380,24 @@ namespace HayaiFE.Data
                             row++;
                         }
 
-                        globalBlockCounter++; // <<< INCREMENT GLOBALLY
+                        // 🧠 Update BlockData using block number
+                        var blockToUpdate = blockDatas.FirstOrDefault(b => b.BlockNumber == globalBlockCounter);
+                        if (blockToUpdate != null)
+                        {
+                            blockToUpdate.Subject = subject;
+                            blockToUpdate.Branch = branch;
+                            blockToUpdate.StartingSeatNumber = seatNumbers[startIndex];
+                            blockToUpdate.EndingSeatNumber = seatNumbers[endIndex - 1];
+                            // Optional: Save to DB here if you're ready
+                            // await _dbContext.SaveChangesAsync();
+                        }
+
+                        globalBlockCounter++;
+
+                        if (globalBlockCounter > 35)
+                            globalBlockCounter = 1; // wrap around if max block reached
                     }
+
                 }
 
                 // Convert workbook to PDF and return stream
@@ -215,6 +410,7 @@ namespace HayaiFE.Data
                 return pdfStream;
             }
         }
+
 
 
 
@@ -272,7 +468,17 @@ namespace HayaiFE.Data
 
             foreach (var subject in extractedSubjects)
             {
-                string subjectKey = $"{subject.Code}_{subject.Name}_{subject.Type}";
+                string NormalizeKey(string rawKey)
+                {
+                    if (string.IsNullOrWhiteSpace(rawKey)) return "";
+
+                    // Collapse multiple spaces → single space
+                    string collapsed = System.Text.RegularExpressions.Regex.Replace(rawKey, @"\s+", " ");
+
+                    // Remove leading/trailing whitespace and make consistent casing (optional)
+                    return collapsed.Trim();
+                }
+                string subjectKey = NormalizeKey($"{subject.Code}_{subject.Name}_{subject.Type}");
 
                 examDetailsList.Add(new ExamDetails
                 {

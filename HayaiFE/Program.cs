@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.JSInterop;
 using MudBlazor.Services;
+using Syncfusion.Licensing;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,8 +17,12 @@ builder.Services.AddMudServices();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+
 //Register Syncfusion license
-Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("MzY5ODcxM0AzMjM4MmUzMDJlMzBuMVgyS2tHaWh6UkxudUMrdi9JTytEdUU4SUZkQUdKUVNCcEtCWUY4ZkJrPQ==");
+//Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("MzY5ODcxM0AzMjM4MmUzMDJlMzBuMVgyS2tHaWh6UkxudUMrdi9JTytEdUU4SUZkQUdKUVNCcEtCWUY4ZkJrPQ==");
+
+
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
@@ -26,7 +31,8 @@ builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuth
 builder.Services.AddSingleton<ExamDataService>(); // Data persists across pages & users
 builder.Services.AddSingleton<SummaryService>();
 builder.Services.AddSingleton<TeacherDataService>();
-
+builder.Services.AddScoped<ExamBlockService>();
+builder.Services.AddSingleton<CreateExcel>();
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = IdentityConstants.ApplicationScheme;
@@ -44,10 +50,18 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddSignInManager()
     .AddDefaultTokenProviders();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
-builder.Services.AddSingleton<CreateExcel>();
 
 var app = builder.Build();
 
+using (var scope = builder.Services.BuildServiceProvider().CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var license = db.SyncfusionLicenses.FirstOrDefault();
+    if (license != null)
+    {
+        SyncfusionLicenseProvider.RegisterLicense(license.LicenseKey);
+    }
+}
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

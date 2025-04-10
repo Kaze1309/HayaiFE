@@ -39,13 +39,10 @@
         <MudItem xs="3" Class="mt-5">
             <MudSelect Label="Start Block" T="int" @bind-Value="summary.StartBlock" >
                 <MudSelectItem Value="0" Disabled="true">Choose Start Block</MudSelectItem>
-                @if (blocksRequired > 0)
-                {
-                    @foreach (var item in Enumerable.Range(1, blocksRequired))
+                    @foreach (var item in Enumerable.Range(1, 35))
                     {
                         <MudSelectItem Value="@item">@item</MudSelectItem>
                     }
-                }
             </MudSelect>
         </MudItem>
     </MudGrid>
@@ -63,8 +60,6 @@
         </MudItem>
     </MudStack>
 </EditForm>
-<h1>Assistant Professors Uploaded: <b>@TdService.GetTeacherData().Count</b></h1>
-
 @code {
     private SummaryDetails summary = new();
 

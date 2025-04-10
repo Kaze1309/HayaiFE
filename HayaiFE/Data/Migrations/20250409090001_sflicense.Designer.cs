@@ -4,6 +4,7 @@ using HayaiFE.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HayaiFE.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250409090001_sflicense")]
+    partial class sflicense
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -85,46 +88,6 @@ namespace HayaiFE.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("HayaiFE.Models.BlockData", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AssignedTeacher")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AssignedTeacherDepartment")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("BlockFloor")
-                        .HasColumnType("int");
-
-                    b.Property<int>("BlockNumber")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Branch")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EndingSeatNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RoomNo")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("StartingSeatNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Subject")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("BlocksInfo");
                 });
 
             modelBuilder.Entity("HayaiFE.Models.SfLicense", b =>
