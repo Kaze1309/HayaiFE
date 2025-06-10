@@ -15,7 +15,7 @@ namespace HayaiFE.Data
 {
     public class CreateExcel
     {
-
+        IWorkbook SignatureWorkbook { get; set; }
         public string ExtractYear(string filePath)
         {
             using FileStream docStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -72,7 +72,7 @@ namespace HayaiFE.Data
             foreach (Match match in matches)
             {
                 string subjectCode = match.Groups[1].Value.Trim();
-                string subjectName = Regex.Replace(match.Groups[2].Value, @"\s+", " ").Trim();
+                string subjectName = match.Groups[2].Value.Trim();
                 string subjectType = match.Groups[3].Value.Trim(); // ✅ Entire type block (e.g., `[[IN],[TH]]`)
 
                 string uniqueKey = $"{subjectCode}_{subjectName}_{subjectType}";
@@ -111,17 +111,17 @@ namespace HayaiFE.Data
             foreach (var subject in subjects)
             {
 
-                string NormalizeKey(string rawKey)
-                {
-                    if (string.IsNullOrWhiteSpace(rawKey)) return "";
+                //string NormalizeKey(string rawKey)
+                //{
+                //    if (string.IsNullOrWhiteSpace(rawKey)) return "";
 
-                    // Collapse multiple spaces → single space
-                    string collapsed = System.Text.RegularExpressions.Regex.Replace(rawKey, @"\s+", " ");
+                //    // Collapse multiple spaces → single space
+                //    string collapsed = System.Text.RegularExpressions.Regex.Replace(rawKey, @"\s+", " ");
 
-                    // Remove leading/trailing whitespace and make consistent casing (optional)
-                    return collapsed.Trim();
-                }
-                string subjectKey = NormalizeKey($"{subject.Code}_{subject.Name}_{subject.Type}");
+                //    // Remove leading/trailing whitespace and make consistent casing (optional)
+                //    return collapsed.Trim();
+                //}
+                string subjectKey = ($"{subject.Code}_{subject.Name}_{subject.Type}");
 
                 // ✅ Updated Regex to match subjects with specific type
                 string pattern = @$"SUB:\s*{subject.Code}\s+{Regex.Escape(subject.Name)}\s*{Regex.Escape(subject.Type)}.*?NO\.OF STUDENTS:\s*\d+\s*([\s\S]+?)(?=\nSUB:\s*\d+|\nReport|$)";
@@ -158,10 +158,10 @@ namespace HayaiFE.Data
 
                 // Header
                 sheet.Range["A1"].Text = "Block No";
-                sheet.Range["D1"].Text = "Subject";
-                sheet.Range["E1"].Text = "Branch";
-                sheet.Range["F1"].Text = "Assigned Teacher";
-                sheet.Range["G1"].Text = "Teacher Department";
+                sheet.Range["B1"].Text = "Subject";
+                sheet.Range["C1"].Text = "Branch";
+                sheet.Range["D1"].Text = "Assigned Teacher";
+                sheet.Range["E1"].Text = "Teacher Department";
 
                 int row = 2;
                 var availableTeachers = new List<Teacher>(teachers);
@@ -203,12 +203,18 @@ namespace HayaiFE.Data
 
                     // Write to Excel
                     sheet.Range[$"A{row}"].Number = block.BlockNumber;
-                    sheet.Range[$"D{row}"].Text = block.Subject;
-                    sheet.Range[$"E{row}"].Text = block.Branch;
-                    sheet.Range[$"F{row}"].Text = block.AssignedTeacher;
-                    sheet.Range[$"G{row}"].Text = block.AssignedTeacherDepartment;
+                    sheet.Range[$"B{row}"].Text = block.Subject;
+                    sheet.Range[$"C{row}"].Text = block.Branch;
+                    sheet.Range[$"D{row}"].Text = block.AssignedTeacher;
+                    sheet.Range[$"E{row}"].Text = block.AssignedTeacherDepartment;
+                    sheet.Range[$"A{row}:E{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeLeft].LineStyle = ExcelLineStyle.Thin;
+                    sheet.Range[$"A{row}:E{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeRight].LineStyle = ExcelLineStyle.Thin;
+                    sheet.Range[$"A{row}:E{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeTop].LineStyle = ExcelLineStyle.Thin;
+                    sheet.Range[$"A{row}:E{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeBottom].LineStyle = ExcelLineStyle.Thin;
+
                     row++;
                 }
+                sheet.UsedRange.AutofitColumns();
 
                 // Save to memory stream
                 MemoryStream stream = new MemoryStream();
@@ -217,10 +223,7 @@ namespace HayaiFE.Data
                 return stream;
             }
         }
-        public MemoryStream GenerateNoticeBoardReport(
-    List<BlockData> blocks,
-    List<SavedExamDetails> savedExamDetailsList,
-    SummaryDetails summaryDetails)
+        public MemoryStream GenerateNoticeBoardReport(List<BlockData> blocks, List<SavedExamDetails> savedExamDetailsList, SummaryDetails summaryDetails)
         {
             using ExcelEngine excelEngine = new ExcelEngine();
             IApplication application = excelEngine.Excel;
@@ -228,7 +231,6 @@ namespace HayaiFE.Data
             IWorkbook workbook = application.Workbooks.Create(1);
             IWorksheet sheet = workbook.Worksheets[0];
 
-            // Date and Time
             DateTime dateTimeNormalized = Convert.ToDateTime(summaryDetails.ExamDate);
             string examDate = dateTimeNormalized.ToString("dddd dd-MM-yyyy");
             string examTime = $"{summaryDetails.StartTime:hh\\:mm} TO {summaryDetails.EndTime:hh\\:mm}";
@@ -244,7 +246,6 @@ namespace HayaiFE.Data
             string[] headers = {
         "YEAR, BRANCH", "SUBJECT WITH CODE", "BLOCK NO", "ROOM NO", "FLOOR", "SEAT NO. FROM", "SEAT NO. TO"
     };
-
             for (int i = 0; i < headers.Length; i++)
             {
                 sheet.Range[2, i + 1].Text = headers[i];
@@ -254,12 +255,11 @@ namespace HayaiFE.Data
 
             int row = 3;
 
-            // Filter out incomplete blocks and group by subject
             var subjectGroups = blocks
-                .Where(b => !string.IsNullOrWhiteSpace(b.AssignedTeacher) &&
-                            !string.IsNullOrWhiteSpace(b.Subject) &&
-                            !string.IsNullOrWhiteSpace(b.StartingSeatNumber) &&
-                            !string.IsNullOrWhiteSpace(b.EndingSeatNumber))
+                .Where(b => !string.IsNullOrWhiteSpace(b.AssignedTeacher)
+                    && !string.IsNullOrWhiteSpace(b.Subject)
+                    && !string.IsNullOrWhiteSpace(b.StartingSeatNumber)
+                    && !string.IsNullOrWhiteSpace(b.EndingSeatNumber))
                 .GroupBy(b => b.Subject);
 
             foreach (var subjectGroup in subjectGroups)
@@ -267,7 +267,6 @@ namespace HayaiFE.Data
                 int groupStartRow = row;
                 int groupRowCount = subjectGroup.Count();
 
-                // Get savedExamDetails that matches subject
                 var matchingDetails = savedExamDetailsList
                     .FirstOrDefault(s => s.Subject.Equals(subjectGroup.Key, StringComparison.OrdinalIgnoreCase));
 
@@ -277,41 +276,47 @@ namespace HayaiFE.Data
 
                 foreach (var block in subjectGroup)
                 {
-                    sheet.Range[$"A{row}"].Text = yearBranch;
+                    // Fill individual cells
                     sheet.Range[$"C{row}"].Number = block.BlockNumber;
                     sheet.Range[$"D{row}"].Text = block.RoomNo ?? "N/A";
                     sheet.Range[$"E{row}"].Text = block.BlockFloor.ToString();
                     sheet.Range[$"F{row}"].Text = block.StartingSeatNumber ?? "N/A";
                     sheet.Range[$"G{row}"].Text = block.EndingSeatNumber ?? "N/A";
-
                     row++;
                 }
 
-                // Merge subject cell vertically across all rows in this group
-                string mergeRange = $"B{groupStartRow}:B{groupStartRow + groupRowCount - 1}";
-                sheet.Range[mergeRange].Merge();
+                // Merge and set subject name
+                string subjectRange = $"B{groupStartRow}:B{groupStartRow + groupRowCount - 1}";
+                sheet.Range[subjectRange].Merge();
                 sheet.Range[$"B{groupStartRow}"].Text = subjectGroup.Key;
-                sheet.Range[mergeRange].CellStyle.VerticalAlignment = ExcelVAlign.VAlignCenter;
-                sheet.Range[mergeRange].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
-                sheet.Range[mergeRange].CellStyle.Font.Bold = true;
+                sheet.Range[subjectRange].CellStyle.VerticalAlignment = ExcelVAlign.VAlignCenter;
+                sheet.Range[subjectRange].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+                sheet.Range[subjectRange].CellStyle.Font.Bold = true;
+
+                // Merge and set year, branch
+                string yearBranchRange = $"A{groupStartRow}:A{groupStartRow + groupRowCount - 1}";
+                sheet.Range[yearBranchRange].Merge();
+                sheet.Range[$"A{groupStartRow}"].Text = yearBranch;
+                sheet.Range[yearBranchRange].CellStyle.VerticalAlignment = ExcelVAlign.VAlignCenter;
+                sheet.Range[yearBranchRange].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+                sheet.Range[yearBranchRange].CellStyle.Font.Bold = true;
             }
 
-            // Borders only for the entire filled table (excluding merged titles)
-            string fullTableRange = $"A2:G{row - 1}";
-            sheet.Range[fullTableRange].CellStyle.Borders.LineStyle = ExcelLineStyle.Thin;
+            // Apply borders only to non-merged cells
+            string fullRange = $"A2:G{row - 1}";
+            sheet.Range[fullRange].CellStyle.Borders[ExcelBordersIndex.EdgeLeft].LineStyle = ExcelLineStyle.Thin;
+            sheet.Range[fullRange].CellStyle.Borders[ExcelBordersIndex.EdgeRight].LineStyle = ExcelLineStyle.Thin;
+            sheet.Range[fullRange].CellStyle.Borders[ExcelBordersIndex.EdgeTop].LineStyle = ExcelLineStyle.Thin;
+            sheet.Range[fullRange].CellStyle.Borders[ExcelBordersIndex.EdgeBottom].LineStyle = ExcelLineStyle.Thin;
 
-            // Auto fit
             sheet.UsedRange.AutofitColumns();
 
-            // Save to memory stream
             using MemoryStream stream = new MemoryStream();
             workbook.SaveAs(stream);
             stream.Position = 0;
             return stream;
+
         }
-
-
-
 
         public MemoryStream CreateDocument(List<SavedExamDetails> savedExamDetails, int totalStudents, SummaryDetails summaryDetails, List<BlockData> blockDatas)
         {
@@ -323,7 +328,7 @@ namespace HayaiFE.Data
                 IWorkbook workbook = application.Workbooks.Create(1);
                 int maxStudentsPerBlock = summaryDetails.MaxStudentsPerBlock;
                 int globalBlockCounter = summaryDetails.StartBlock;
-                int MaxBlockNumber = 35; // <<< wrap around if exceeded
+                int MaxBlockNumber = 35;
 
                 foreach (var exam in savedExamDetails)
                 {
@@ -346,8 +351,14 @@ namespace HayaiFE.Data
                         int startIndex = localBlock * maxStudentsPerBlock;
                         int endIndex = Math.Min(startIndex + maxStudentsPerBlock, studentCount);
 
-                        // Create worksheet for this block
                         IWorksheet sheet = workbook.Worksheets.Create();
+                        sheet.Name = $"Block_{globalBlockCounter}";
+
+                        // Increase width and center page horizontally
+                        sheet.PageSetup.IsFitToPage = true;
+                        sheet.PageSetup.CenterHorizontally = true;
+
+                        // Title section
                         sheet.Range["A1:C1"].Merge();
                         sheet.Range["A1"].Text = $"Block Number: {globalBlockCounter}";
                         sheet.Range["A2:C2"].Merge();
@@ -358,29 +369,57 @@ namespace HayaiFE.Data
                         sheet.Range["A4"].Text = $"{year} {branch} 2019 PATTERN";
                         sheet.Range["A5:C5"].Merge();
                         sheet.Range["A5"].Text = $"{subject}";
-
-                        sheet.Range["A1"].ColumnWidth = 36;
+                        sheet.Range["A1:C6"].CellStyle.Borders[ExcelBordersIndex.EdgeLeft].LineStyle = ExcelLineStyle.Thin;
+                        sheet.Range["A1:C6"].CellStyle.Borders[ExcelBordersIndex.EdgeRight].LineStyle = ExcelLineStyle.Thin;
+                        sheet.Range["A1:C6"].CellStyle.Borders[ExcelBordersIndex.EdgeTop].LineStyle = ExcelLineStyle.Thin;
+                        sheet.Range["A1:C6"].CellStyle.Borders[ExcelBordersIndex.EdgeBottom].LineStyle = ExcelLineStyle.Thin;
+                        // Format title rows
                         sheet.Range["A1:C5"].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+                        sheet.Range["A1:C5"].CellStyle.VerticalAlignment = ExcelVAlign.VAlignCenter;
                         sheet.Range["A1:C5"].CellStyle.Font.Bold = true;
-                        sheet.Range["A4:C4"].CellStyle.Color = Syncfusion.Drawing.Color.FromArgb(220, 220, 220);
-                        sheet.Range["A5:C5"].CellStyle.Color = Syncfusion.Drawing.Color.FromArgb(220, 220, 220);
+                        sheet.Range["A1:C5"].CellStyle.Font.Size = 13;
+                        sheet.Range["A4:C4"].CellStyle.Color = Syncfusion.Drawing.Color.LightGray;
+                        sheet.Range["A5:C5"].CellStyle.Color = Syncfusion.Drawing.Color.LightGray;
+                        sheet.Range["A1"].ColumnWidth = 60;
 
-                        sheet.Range["A7"].Text = "Serial No.";
-                        sheet.Range["B7"].Text = "Bench No.";
-                        sheet.Range["C7"].Text = "Seat Numbers";
-                        sheet.Range["A7:C7"].CellStyle.Font.Bold = true;
+                        // Header row
 
+                        sheet.Range["A6"].Text = "Serial No.";
+                        sheet.Range["C7"].CellStyle.Borders[ExcelBordersIndex.EdgeRight].LineStyle = ExcelLineStyle.Thin;
+
+                        sheet.Range["A6:A7"].Merge();
+                        sheet.Range["B6"].Text = "Bench No.";
+                        sheet.Range["B6:B7"].Merge();
+                        sheet.Range["C6"].Text = "Seat Numbers";
+                        sheet.Range["C6:C7"].Merge();
+
+                        sheet.Range["A6:C6"].CellStyle.Font.Bold = true;
+                        sheet.Range["A6:C6"].CellStyle.Font.Size = 12;
+                        sheet.Range["A6:C6"].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+                        sheet.Range["A6:C6"].CellStyle.VerticalAlignment = ExcelVAlign.VAlignCenter;
+
+                        // Student rows
                         int row = 8;
                         for (int i = startIndex; i < endIndex; i++)
                         {
-                            sheet.Range[$"C{row}"].Text = seatNumbers[i];
                             int serial = (i - startIndex) + 1;
                             sheet.Range[$"A{row}"].Number = serial;
                             sheet.Range[$"B{row}"].Number = serial;
+                            sheet.Range[$"C{row}"].Text = seatNumbers[i];
+                            sheet.Range[$"A{row}:C{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeLeft].LineStyle = ExcelLineStyle.Thin;
+                            sheet.Range[$"A{row}:C{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeRight].LineStyle = ExcelLineStyle.Thin;
+                            sheet.Range[$"A{row}:C{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeTop].LineStyle = ExcelLineStyle.Thin;
+                            sheet.Range[$"A{row}:C{row}"].CellStyle.Borders[ExcelBordersIndex.EdgeBottom].LineStyle = ExcelLineStyle.Thin;
+
                             row++;
                         }
+                        sheet.Range[$"A{endIndex}:C{endIndex}"].ColumnWidth = 25;
 
-                        // 🧠 Update BlockData using block number
+                        // Style student rows
+                        sheet.Range[$"A8:C{row - 1}"].CellStyle.Font.Size = 11;
+                        sheet.Range[$"A8:C{row - 1}"].CellStyle.HorizontalAlignment = ExcelHAlign.HAlignCenter;
+
+                        // Update BlockData
                         var blockToUpdate = blockDatas.FirstOrDefault(b => b.BlockNumber == globalBlockCounter);
                         if (blockToUpdate != null)
                         {
@@ -388,19 +427,15 @@ namespace HayaiFE.Data
                             blockToUpdate.Branch = branch;
                             blockToUpdate.StartingSeatNumber = seatNumbers[startIndex];
                             blockToUpdate.EndingSeatNumber = seatNumbers[endIndex - 1];
-                            // Optional: Save to DB here if you're ready
-                            // await _dbContext.SaveChangesAsync();
                         }
 
                         globalBlockCounter++;
-
-                        if (globalBlockCounter > 35)
-                            globalBlockCounter = 1; // wrap around if max block reached
+                        if (globalBlockCounter > MaxBlockNumber)
+                            globalBlockCounter = 1;
                     }
-
                 }
-
-                // Convert workbook to PDF and return stream
+                SignatureWorkbook = workbook;
+                // Generate PDF
                 MemoryStream pdfStream = new MemoryStream();
                 XlsIORenderer renderer = new XlsIORenderer();
                 PdfDocument document = renderer.ConvertToPDF(workbook);
@@ -413,7 +448,27 @@ namespace HayaiFE.Data
 
 
 
+        //public MemoryStream SignatureSheet()
+        //{
 
+        //    int NumberofSheets = SignatureWorkbook.Worksheets.Count;
+
+        //    for (int i = 0; i < NumberofSheets - 1; i++)
+        //    {
+        //        IWorksheet worksheet = SignatureWorkbook.Worksheets[i];
+
+        //        worksheet.Range["]
+        //    }
+
+        //    MemoryStream pdfStream = new MemoryStream();
+        //    XlsIORenderer renderer = new XlsIORenderer();
+        //    PdfDocument document = renderer.ConvertToPDF(SignatureWorkbook);
+        //    document.Save(pdfStream);
+        //    document.Close(true);
+        //    pdfStream.Position = 0;
+        //    return pdfStream;
+
+        //}
         public List<Teacher> ExtractAssistantProfessors(string filePath)
         {
             List<Teacher> associateProfessors = new();
@@ -454,9 +509,6 @@ namespace HayaiFE.Data
             return associateProfessors;
         }
 
-
-
-
         public List<ExamDetails> ExtractExamDetails(string filePath)
         {
             string year = ExtractYear(filePath);
@@ -468,17 +520,17 @@ namespace HayaiFE.Data
 
             foreach (var subject in extractedSubjects)
             {
-                string NormalizeKey(string rawKey)
-                {
-                    if (string.IsNullOrWhiteSpace(rawKey)) return "";
+                //string NormalizeKey(string rawKey)
+                //{
+                //    if (string.IsNullOrWhiteSpace(rawKey)) return "";
 
-                    // Collapse multiple spaces → single space
-                    string collapsed = System.Text.RegularExpressions.Regex.Replace(rawKey, @"\s+", " ");
+                //    // Collapse multiple spaces → single space
+                //    string collapsed = System.Text.RegularExpressions.Regex.Replace(rawKey, @"\s+", " ");
 
-                    // Remove leading/trailing whitespace and make consistent casing (optional)
-                    return collapsed.Trim();
-                }
-                string subjectKey = NormalizeKey($"{subject.Code}_{subject.Name}_{subject.Type}");
+                //    // Remove leading/trailing whitespace and make consistent casing (optional)
+                //    return collapsed.Trim();
+                //}
+                string subjectKey = ($"{subject.Code}_{subject.Name}_{subject.Type}");
 
                 examDetailsList.Add(new ExamDetails
                 {

@@ -13,16 +13,18 @@
 @inject ExamBlockService EBService
 @attribute [Authorize]
 
-<MudText>@OutSideBlockFile</MudText>
+<MudText>OutSideBlock SeatNoSheet</MudText>
 <MudButton Variant="Variant.Filled" OnClick="OutSideBlock">Download</MudButton>
 
-<MudText>Allotment Sheet.pdf</MudText>
+<MudText>Teacher Block Allocation Sheet</MudText>
 <MudButton Variant="Variant.Filled" OnClick="AssignedTeachers">Download</MudButton>
 
 
-<MudText>noticebaord Sheet.pdf</MudText>
+<MudText>NoticeBoard Sheet</MudText>
 <MudButton Variant="Variant.Filled" OnClick="NoticeBoardSheet">Download</MudButton>
 
+<MudText>Attendance Sheet</MudText>
+<MudButton Variant="Variant.Filled">Download</MudButton>
 @code {
     MemoryStream excelStream;
 
@@ -30,7 +32,7 @@
     MemoryStream noticeStream;
     public string OutSideBlockFile = "OutSideBlock.pdf";
     public string AssignmentFile = "AssignedTeachers.xlsx";
-    public string NoticeBoardFile = "NoticeBoard.xlsx";
+    public string NoticeBoardFile = "NoticeBoard.pdf";
     private async Task OutSideBlock()
     {
 

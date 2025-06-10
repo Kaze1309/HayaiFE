@@ -1,0 +1,65 @@
+﻿@page "/view-blocks"
+@using HayaiFE.Models
+@using HayaiFE.Services
+@inject ExamBlockService BlockService
+
+<MudPaper Class="pa-4 mt-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Exam Blocks Overview</MudText>
+
+    @if (blocks == null)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (!blocks.Any())
+    {
+        <MudText>No blocks found in database.</MudText>
+    }
+    else
+    {
+        <MudTable Items="blocks" Hover="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Block No.</MudTh>
+                <MudTh>Room</MudTh>
+                <MudTh>Floor</MudTh>
+                <MudTh>Subject</MudTh>
+                <MudTh>Branch</MudTh>
+                <MudTh>Start Seat</MudTh>
+                <MudTh>End Seat</MudTh>
+                <MudTh>Assigned Teacher</MudTh>
+                <MudTh>Department</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Block No.">@context.BlockNumber</MudTd>
+                <MudTd DataLabel="Room">@context.RoomNo</MudTd>
+                <MudTd DataLabel="Floor">@context.BlockFloor</MudTd>
+                <MudTd DataLabel="Subject">@context.Subject</MudTd>
+                <MudTd DataLabel="Branch">@context.Branch</MudTd>
+                <MudTd DataLabel="Start Seat">@context.StartingSeatNumber</MudTd>
+                <MudTd DataLabel="End Seat">@context.EndingSeatNumber</MudTd>
+                <MudTd DataLabel="Teacher">@context.AssignedTeacher</MudTd>
+                <MudTd DataLabel="Dept">@context.AssignedTeacherDepartment</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+<MudButton Variant="Variant.Filled" OnClick="LoadBlockData" Class="mt-4">Refresh Blocks</MudButton>
+
+@code {
+    private List<BlockData>? blocks;
+
+        [Inject] public ExamBlockService EBService { get; set; }
+
+        protected override async Task OnInitializedAsync()
+        {
+
+            await LoadBlockData();
+        }
+
+        private async Task LoadBlockData()
+        {
+            blocks = await EBService.GetAllBlocksAsync();
+            StateHasChanged();
+        }
+    
+
+}
