@@ -18,12 +18,6 @@ builder.Services.AddMudServices();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-
-//Register Syncfusion license
-//Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("MzY5ODcxM0AzMjM4MmUzMDJlMzBuMVgyS2tHaWh6UkxudUMrdi9JTytEdUU4SUZkQUdKUVNCcEtCWUY4ZkJrPQ==");
-
-
-
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
 builder.Services.AddScoped<IdentityRedirectManager>();
